@@ -1,29 +1,58 @@
 package dynfs.dynlm;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
 public class BlockList extends BlockLike {
 
-	private static <BL extends BlockLike> int __calculateConstructorArgumentSize(BL[] args) {
-		return Arrays.stream(args).mapToInt(BlockLike::size).sum();
+	private static int __calculateConstructorArgumentSize(Block[] args) {
+		return Arrays.stream(args).mapToInt(Block::size).sum();
 	}
 
-	private final NavigableMap<Integer, BlockLike> nested;
+	private final LMSpace store;
+	private final LMFile file;
+	private final NavigableMap<Integer, Block> nested;
 
-	public BlockList(Block... nested) {
+	public BlockList(LMSpace store, LMFile file, Block... nested) throws IOException {
 		super(__calculateConstructorArgumentSize(nested));
+		this.store = store;
+		this.file = file;
 		this.nested = new TreeMap<>();
 		int index = 0;
-		for (BlockLike b : nested) {
+		for (Block b : nested) {
 			this.nested.put(index, b);
 			index += b.size();
 		}
 	}
 
-	private Map.Entry<Integer, BlockLike> uncheckedGetChildBlock(int off) {
+	@Override
+	protected int setSize(int newSize) throws IOException {
+		int newNumBlocks = Block.numBlocks(newSize);
+		if (newNumBlocks > nested.size()) {
+			Map.Entry<Integer, Block> lastBlock = nested.lastEntry();
+			int offset = lastBlock.getKey() + lastBlock.getValue().size();
+			
+			List<Block> allocatedBlocks = store.allocateBlocks(file, newNumBlocks - nested.size());
+			for (Block b : allocatedBlocks) {
+				nested.put(offset, b);
+				offset += b.size();
+			}
+		} else if (newNumBlocks < nested.size()) {
+			Collection<Block> toBeFreed = nested.tailMap(newSize).values();
+			List<Block> freedBlocks = new ArrayList<>(toBeFreed);
+			toBeFreed.clear();
+			store.freeBlocks(file, freedBlocks);
+		}
+		return super.setSize(newSize);
+	}
+
+	private Map.Entry<Integer, Block> uncheckedGetChildBlock(int off) {
 		return nested.floorEntry(off);
 	}
 
@@ -31,26 +60,26 @@ public class BlockList extends BlockLike {
 		if (len == 0)
 			return;
 
-		Map.Entry<Integer, BlockLike> start = uncheckedGetChildBlock(off);
-		Map.Entry<Integer, BlockLike> end = uncheckedGetChildBlock(off + len - 1);
+		Map.Entry<Integer, Block> start = uncheckedGetChildBlock(off);
+		Map.Entry<Integer, Block> end = uncheckedGetChildBlock(off + len - 1);
 
 		if (start.getValue() == end.getValue()) {
-			// start and end are both in same child BlockLike
+			// start and end are both in same child Block
 			int offsetWithinBlock = off - start.getKey();
 			start.getValue().uncheckedTransfer(offsetWithinBlock, other, otherOff, len, read);
 		} else {
-			// start and end are in distinct children BlockLike
-			NavigableMap<Integer, BlockLike> tail = nested.subMap(start.getKey(), false, end.getKey(), true);
+			// start and end are in distinct children Block
+			NavigableMap<Integer, Block> tail = nested.subMap(start.getKey(), false, end.getKey(), true);
 			{
 				// Copy start block
-				BlockLike startBlock = start.getValue();
+				Block startBlock = start.getValue();
 				int offsetWithinStart = off - start.getKey();
 				int sizeWithinStart = startBlock.size() - offsetWithinStart;
 				startBlock.uncheckedTransfer(offsetWithinStart, other, otherOff, sizeWithinStart, read);
 				otherOff += sizeWithinStart;
 				len -= sizeWithinStart;
 			}
-			for (BlockLike b : tail.values()) {
+			for (Block b : tail.values()) {
 				// Copy remaining blocks
 				if (len > b.size()) {
 					b.uncheckedTransfer(0, other, otherOff, b.size(), read);
@@ -77,7 +106,7 @@ public class BlockList extends BlockLike {
 
 	@Override
 	public byte uncheckedReadByte(int off) {
-		Map.Entry<Integer, BlockLike> block = uncheckedGetChildBlock(off);
+		Map.Entry<Integer, Block> block = uncheckedGetChildBlock(off);
 		int offsetWithinBlock = off - block.getKey();
 
 		return block.getValue().uncheckedReadByte(offsetWithinBlock);
@@ -85,7 +114,7 @@ public class BlockList extends BlockLike {
 
 	@Override
 	public void uncheckedWriteByte(int off, byte val) {
-		Map.Entry<Integer, BlockLike> block = uncheckedGetChildBlock(off);
+		Map.Entry<Integer, Block> block = uncheckedGetChildBlock(off);
 		int offsetWithinBlock = off - block.getKey();
 
 		block.getValue().uncheckedWriteByte(offsetWithinBlock, val);

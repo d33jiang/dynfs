@@ -1,5 +1,7 @@
 package dynfs.dynlm;
 
+import java.io.IOException;
+
 abstract class BlockLike {
 
 	//
@@ -39,11 +41,11 @@ abstract class BlockLike {
 	//
 	// Construction
 
-	protected BlockLike(int initialSize) {
+	protected BlockLike(int initialSize) throws IOException {
 		this(initialSize, null);
 	}
 
-	protected BlockLike(int initialSize, LMFile initialOwner) {
+	protected BlockLike(int initialSize, LMFile initialOwner) throws IOException {
 		setSize(initialSize);
 		setOwner(initialOwner);
 	}
@@ -55,7 +57,7 @@ abstract class BlockLike {
 		return size;
 	}
 
-	protected final int setSize(int newSize) {
+	protected int setSize(int newSize) throws IOException {
 		int temp = this.size;
 		this.size = newSize;
 		return temp;

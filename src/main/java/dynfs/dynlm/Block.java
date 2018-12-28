@@ -1,5 +1,7 @@
 package dynfs.dynlm;
 
+import java.io.IOException;
+
 import dynfs.debug.Dumpable;
 
 public class Block extends BlockLike implements Dumpable {
@@ -17,7 +19,7 @@ public class Block extends BlockLike implements Dumpable {
 	private int index;
 	private final byte[] data;
 
-	Block(int index) {
+	Block(int index) throws IOException {
 		super(BLOCK_SIZE);
 
 		this.index = index;
@@ -32,6 +34,11 @@ public class Block extends BlockLike implements Dumpable {
 		int temp = index;
 		index = newIndex;
 		return temp;
+	}
+
+	@Override
+	protected int setSize(int newSize) {
+		throw new UnsupportedOperationException("Blocks cannot be resized");
 	}
 
 	//

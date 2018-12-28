@@ -1,20 +1,18 @@
 package dynfs.dynlm;
 
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
 
 public class LMFile extends LMNode {
 
 	private long size;
-	private List<WeakReference<Block>> data;
+	private BlockList data;
 
-	LMFile(LMNode parent, String name) {
+	LMFile(LMNode parent, String name) throws IOException {
 		super(parent.getStore(), parent, name, false);
 		validateName(name);
 
 		size = 0;
-		data = new ArrayList<>();
+		data = new BlockList(parent.getStore(), this);
 	}
 
 	@Override
@@ -42,4 +40,14 @@ public class LMFile extends LMNode {
 		return size;
 	}
 
+	void setSize(int size) throws IOException {
+		this.data.setSize(size);
+		this.size = size;
+	}
+	
+	BlockLike getData() {
+		// TODO: Restrict interface to expose only read/write methods
+		return data;
+	}
+	
 }

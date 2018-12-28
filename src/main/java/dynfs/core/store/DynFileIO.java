@@ -12,57 +12,104 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
+import java.nio.file.spi.FileSystemProvider;
 import java.util.Map;
 import java.util.Set;
 
-import dynfs.core.DynPath.DynPathBody;
+import dynfs.core.path.DynRoute;
 
 public interface DynFileIO {
 
-	//
-	// Byte Channel
+    //
+    // Existence Query
 
-	public SeekableByteChannel newByteChannel(DynPathBody path, Set<? extends OpenOption> options,
-			FileAttribute<?>... attrs) throws IOException;
+    public boolean exists(DynRoute route, boolean nofollowLinks) throws IOException;
 
-	//
-	// Directory Operations
+    //
+    // Byte Channel
 
-	public DirectoryStream<Path> newDirectoryStream(DynPathBody dir, Filter<? super Path> filter) throws IOException;
+    /**
+     * @see FileSystemProvider#newByteChannel(Path, Set, FileAttribute...)
+     */
+    public SeekableByteChannel newByteChannel(DynRoute route, Set<? extends OpenOption> options,
+            FileAttribute<?>... attrs) throws IOException;
 
-	public void createDirectory(DynPathBody dir, FileAttribute<?>... attrs) throws IOException;
+    //
+    // Directory Operations
 
-	//
-	// File Operations
+    /**
+     * @see FileSystemProvider#newDirectoryStream(Path, Filter)
+     */
+    public DirectoryStream<Path> newDirectoryStream(DynRoute dir, Filter<? super Path> filter) throws IOException;
 
-	public void delete(DynPathBody path) throws IOException;
+    /**
+     * @see FileSystemProvider#createDirectory(Path, FileAttribute...)
+     */
+    public void createDirectory(DynRoute dir, FileAttribute<?>... attrs) throws IOException;
 
-	public void copy(Path source, DynPathBody target, boolean deleteSource, CopyOption... options) throws IOException;
+    //
+    // File Operations
 
-	public boolean isSameFile(DynPathBody path1, DynPathBody path2) throws IOException;
+    /**
+     * @see FileSystemProvider#delete(Path)
+     */
+    public void delete(DynRoute route) throws IOException;
 
-	//
-	// Hidden Files
+    /**
+     * @see FileSystemProvider#copy(Path, Path, CopyOption...)
+     */
+    public void copy(DynRoute source, DynRoute target, CopyOption... options) throws IOException;
 
-	public boolean isHidden(DynPathBody path) throws IOException;
+    /**
+     * @see FileSystemProvider#move(Path, Path, CopyOption...)
+     */
+    public void move(DynRoute source, DynRoute target, CopyOption... options) throws IOException;
 
-	//
-	// Access Control
+    /**
+     * @see FileSystemProvider#isSameFile(Path, Path)
+     */
+    public boolean isSameFile(DynRoute route1, DynRoute route2) throws IOException;
 
-	public void checkAccess(DynPathBody path, AccessMode... modes) throws IOException;
+    //
+    // Hidden Files
 
-	//
-	// File Attributes
+    /**
+     * @see FileSystemProvider#isHidden(Path)
+     */
+    public boolean isHidden(DynRoute route) throws IOException;
 
-	public <V extends FileAttributeView> V getFileAttributeView(DynPathBody path, Class<V> type, LinkOption... options);
+    //
+    // Access Control
 
-	public <A extends BasicFileAttributes> A readAttributes(DynPathBody path, Class<A> type, LinkOption... options)
-			throws IOException;
+    /**
+     * @see FileSystemProvider#checkAccess(Path, AccessMode...)
+     */
+    public void checkAccess(DynRoute route, AccessMode... modes) throws IOException;
 
-	public Map<String, Object> readAttributes(DynPathBody path, String attributes, LinkOption... options)
-			throws IOException;
+    //
+    // File Attributes
 
-	public void setAttribute(DynPathBody path, String attribute, Object value, LinkOption... options)
-			throws IOException;
+    /**
+     * @see FileSystemProvider#getFileAttributeView(Path, Class, LinkOption...)
+     */
+    public <V extends FileAttributeView> V getFileAttributeView(DynRoute route, Class<V> type, LinkOption... options);
+
+    /**
+     * @see FileSystemProvider#readAttributes(Path, Class, LinkOption...)
+     */
+    public <A extends BasicFileAttributes> A readAttributes(DynRoute route, Class<A> type, LinkOption... options)
+            throws IOException;
+
+    /**
+     * @see FileSystemProvider#readAttributes(Path, String, LinkOption...)
+     */
+    public Map<String, Object> readAttributes(DynRoute route, String attributes, LinkOption... options)
+            throws IOException;
+
+    /**
+     * @see FileSystemProvider#setAttribute(Path, String, Object, LinkOption...)
+     */
+    public void setAttribute(DynRoute route, String attribute, Object value, LinkOption... options)
+            throws IOException;
 
 }

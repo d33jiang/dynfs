@@ -3,73 +3,145 @@ package dynfs.core;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.FileStore;
+import java.nio.file.attribute.FileAttributeView;
+import java.nio.file.attribute.FileStoreAttributeView;
 import java.util.Set;
 
+import dynfs.core.file.DynRootDirectory;
 import dynfs.core.store.DynFileIO;
 
-public abstract class DynSpace extends FileStore implements Closeable {
+public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore implements Closeable {
 
-	private static void validateSpace(long space, String label) {
-		if (space < 0) {
-			if (label == null)
-				label = "The space argument";
-			throw new IllegalArgumentException(label + " must be nonnegative");
-		}
-	}
+    // TODO: Lazy size calculation interface
 
-	private static void validateSpace(long space, String label, long maxValue, String labelMaxValue) {
-		if (space < 0) {
-			if (label == null)
-				label = "The space argument";
-			throw new IllegalArgumentException(label + " must be nonnegative");
-		}
-		if (space > maxValue) {
-			if (labelMaxValue == null)
-				labelMaxValue = String.valueOf(maxValue);
-			throw new IllegalArgumentException(label + " must be at most " + labelMaxValue);
-		}
-	}
+    //
+    // Validation Helper: Size
 
-	private final long totalSpace;
-	private long usedSpace;
+    private static void validateSize(long size, String label) {
+        if (size < 0) {
+            if (label == null)
+                label = "The size argument";
+            throw new IllegalArgumentException(label + " must be nonnegative");
+        }
+    }
 
-	protected DynSpace(long totalSpace) {
-		this(totalSpace, 0);
-	}
+    private static void validateSize(long size, String label, long maxValue, String labelMaxValue) {
+        if (size < 0) {
+            if (label == null)
+                label = "The size argument";
+            throw new IllegalArgumentException(label + " must be nonnegative");
+        }
+        if (size > maxValue) {
+            if (labelMaxValue == null)
+                labelMaxValue = String.valueOf(maxValue);
+            throw new IllegalArgumentException(label + " must be at most " + labelMaxValue);
+        }
+    }
 
-	protected DynSpace(long totalSpace, long usedSpace) {
-		validateSpace(totalSpace, "totalSpace");
-		validateSpace(usedSpace, "usedSpace", totalSpace, "totalSpace");
+    //
+    // Field: Total Space
 
-		this.totalSpace = totalSpace;
-		this.usedSpace = usedSpace;
-	}
+    private final long totalSpace;
 
-	protected final long _getUsedSpace() {
-		return usedSpace;
-	}
+    @Override
+    public final long getTotalSpace() throws IOException {
+        return totalSpace;
+    }
 
-	protected final void _setUsedSpace(long usedSpace) {
-		validateSpace(usedSpace, "usedSpace", totalSpace, "totalSpace");
-		this.usedSpace = usedSpace;
-	}
+    //
+    // Field: Allocated Space
 
-	@Override
-	public long getTotalSpace() throws IOException {
-		return totalSpace;
-	}
+    private long allocatedSpace;
 
-	@Override
-	public long getUsableSpace() throws IOException {
-		return getUnallocatedSpace();
-	}
+    public final long getAllocatedSpace() {
+        return allocatedSpace;
+    }
 
-	@Override
-	public long getUnallocatedSpace() throws IOException {
-		return totalSpace - usedSpace;
-	}
+    protected final void setAllocatedSpace(long allocatedSpace) {
+        validateSize(allocatedSpace, "usedSpace", totalSpace, "totalSpace");
+        this.allocatedSpace = allocatedSpace;
+    }
 
-	public abstract Set<String> supportedFileAttributeViews();
+    @Override
+    public final long getUnallocatedSpace() throws IOException {
+        return totalSpace - allocatedSpace;
+    }
 
-	protected abstract DynFileIO getIOInterface();
+    //
+    // Interface: Usable Space (Abstract)
+
+    @Override
+    public long getUsableSpace() throws IOException {
+        return getUnallocatedSpace();
+    }
+
+    //
+    // Construction
+
+    protected DynSpace(long totalSpace) {
+        this(totalSpace, 0);
+    }
+
+    protected DynSpace(long totalSpace, long usedSpace) {
+        validateSize(totalSpace, "totalSpace");
+        validateSize(usedSpace, "usedSpace", totalSpace, "totalSpace");
+
+        this.totalSpace = totalSpace;
+        this.allocatedSpace = usedSpace;
+    }
+
+    //
+    // Implementation Stub: DynSpace Properties (Abstract)
+
+    @Override
+    public abstract String name();
+
+    @Override
+    public abstract String type();
+
+    @Override
+    public abstract boolean isReadOnly();
+
+    //
+    // Implementation Stub: DynSpace Attributes (Abstract)
+
+    @Override
+    public abstract <V extends FileStoreAttributeView> V getFileStoreAttributeView(Class<V> type);
+
+    @Override
+    public abstract Object getAttribute(String attribute) throws IOException;
+
+    //
+    // Implementation Stub: Supported File Attribute Views (Abstract)
+
+    public abstract Set<Class<? extends FileAttributeView>> supportedFileAttributeViews();
+
+    public abstract Set<String> supportedFileAttributeViewsByName();
+
+    @Override
+    public final boolean supportsFileAttributeView(Class<? extends FileAttributeView> type) {
+        return supportedFileAttributeViews().contains(type);
+    }
+
+    @Override
+    public final boolean supportsFileAttributeView(String name) {
+        return supportedFileAttributeViewsByName().contains(name);
+    }
+
+    //
+    // Implementation Stub: Close (Abstract)
+
+    @Override
+    public abstract void close() throws IOException;
+
+    //
+    // Implementation Stub: I/O Interface (Abstract)
+
+    protected abstract DynFileIO getIOInterface();
+
+    //
+    // Implementation Stub: Root Directory
+
+    public abstract <DirNode extends DynRootDirectory<Space, DirNode>> DynRootDirectory<Space, DirNode> getRootDirectory();
+
 }

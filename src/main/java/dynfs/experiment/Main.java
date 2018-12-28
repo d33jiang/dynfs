@@ -14,37 +14,38 @@ import dynfs.dynlm.LMSpace;
 
 public class Main {
 
-	public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException {
 
-		List<FileSystemProvider> fsps = FileSystemProvider.installedProviders();
-		FileSystem fspDefault = FileSystems.getDefault();
-		System.out.println(fsps);
-		System.out.println(fspDefault);
-		System.out.println();
+        List<FileSystemProvider> fsps = FileSystemProvider.installedProviders();
+        FileSystem fspDefault = FileSystems.getDefault();
+        System.out.println(fsps);
+        System.out.println(fspDefault);
+        System.out.println();
 
-		Optional<FileSystemProvider> dfspo = fsps.stream()
-				.filter(fsp -> fsp instanceof DynFileSystemProvider)
-				.findFirst();
+        Optional<FileSystemProvider> dfspo = fsps.stream()
+                .filter(fsp -> fsp instanceof DynFileSystemProvider)
+                .findFirst();
 
-		if (!dfspo.isPresent())
-			System.exit(1);
+        if (!dfspo.isPresent())
+            System.exit(1);
 
-		DynFileSystemProvider dfsp = (DynFileSystemProvider) dfspo.get();
-		System.out.println(dfsp);
-		System.out.println();
+        DynFileSystemProvider dfsp = (DynFileSystemProvider) dfspo.get();
+        System.out.println(dfsp);
+        System.out.println();
 
-		DynFileSystem fs = dfsp.newFileSystem("asdf", p -> new LMSpace(Block.sizeOfNBlocks(12)), null);
-		LMSpace store = (LMSpace) fs.getStore();
-		System.out.println();
+        DynFileSystem<LMSpace> fs = dfsp.<LMSpace>newFileSystem("asdf", p -> new LMSpace(Block.sizeOfNBlocks(12)),
+                null);
+        LMSpace store = fs.getStore();
+        System.out.println();
 
-		System.out.println("##");
-		System.out.println(store.getTreeDump().build());
-		System.out.println("##");
-		System.out.println(store.getCoreDump().build());
-		System.out.println("##");
-		System.out.println(store.dumpBlock(0).build());
-		System.out.println("##");
+        System.out.println("##");
+        System.out.println(store.getTreeDump().build());
+        System.out.println("##");
+        System.out.println(store.getCoreDump().build());
+        System.out.println("##");
+        System.out.println(store.dumpBlock(0).build());
+        System.out.println("##");
 
-	}
+    }
 
 }

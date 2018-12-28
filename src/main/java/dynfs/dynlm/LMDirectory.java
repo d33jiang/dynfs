@@ -1,58 +1,66 @@
 package dynfs.dynlm;
 
-import dynfs.core.DynSpace;
+import java.util.HashMap;
+import java.util.Map;
+
+import dynfs.core.file.DynNode;
 
 public class LMDirectory extends LMNode {
 
-	//
-	// Construction: Root Directories
+    //
+    // Field: Children
 
-	static LMDirectory createRootDirectory(DynSpace store) {
-		return new LMDirectory(store);
-	}
+    private final Map<String, DynNode<Space, ?>> children = new HashMap<>();
 
-	private LMDirectory(DynSpace store) {
-		super(store, null, null, true);
-	}
+    //
+    // Construction: Root Directories
 
-	//
-	// Regular Directories
+    static LMDirectory createRootDirectory(LMSpace store) {
+        return new LMDirectory(store);
+    }
 
-	LMDirectory(LMNode parent, String name) {
-		super(parent.getStore(), parent, name, true);
-		validateName(name);
-	}
+    private LMDirectory(LMSpace store) {
+        super(store, null, null, true);
+    }
 
-	@Override
-	public boolean isRegularFile() {
-		return false;
-	}
+    //
+    // Regular Directories
 
-	@Override
-	public boolean isDirectory() {
-		return true;
-	}
+    LMDirectory(LMNode parent, String name) {
+        super(parent.getStore(), parent, name, true);
+        validateName(name);
+    }
 
-	@Override
-	public boolean isSymbolicLink() {
-		return false;
-	}
+    @Override
+    public boolean isRegularFile() {
+        return false;
+    }
 
-	@Override
-	public boolean isOther() {
-		return false;
-	}
+    @Override
+    public boolean isDirectory() {
+        return true;
+    }
 
-	@Override
-	public long size() {
-		// NOTE: Naive recursive definition
-		long s = 0;
+    @Override
+    public boolean isSymbolicLink() {
+        return false;
+    }
 
-		for (LMNode n : this) {
-			s += n.size();
-		}
+    @Override
+    public boolean isOther() {
+        return false;
+    }
 
-		return s;
-	}
+    @Override
+    public long size() {
+        // NOTE: Naive recursive definition
+        long s = 0;
+
+        for (LMNode n : this) {
+            s += n.size();
+        }
+
+        return s;
+    }
 
 }
