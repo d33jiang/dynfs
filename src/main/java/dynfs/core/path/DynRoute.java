@@ -1,15 +1,12 @@
 package dynfs.core.path;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.LinkOption;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -19,14 +16,19 @@ import java.util.stream.Stream;
 
 import org.apache.commons.lang3.NotImplementedException;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 import dynfs.core.DynFileSystem;
 import dynfs.core.DynFileSystemProvider;
+import dynfs.core.DynNode;
 import dynfs.core.DynSpace;
-import dynfs.core.file.DynNode;
+import dynfs.core.ResolutionResult;
+import dynfs.core.options.LinkOptions;
 
 public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
+
+    // TODO: null-checks?
 
     //
     // Constant: Root Path String
@@ -43,6 +45,8 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
 
     public static final String PATH_CURDIR = ".";
     public static final String PATH_PARENT = "..";
+
+    public static final String PREFIX_HIDDEN = ".";
 
     //
     // Field: Absolute Property
@@ -62,7 +66,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         return path;
     }
 
-    public String getRouteName(int index) {
+    public String getNameAsString(int index) {
         return path.get(index);
     }
 
@@ -111,12 +115,12 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
 
     private static List<String> decomposePathString(String first, String... more) {
         Stream<String> pathStream = Stream.concat(Stream.<String>builder().add(first).build(), Arrays.stream(more));
-        List<String> pathComponents = pathStream.flatMap(ps -> Arrays.stream(ps.split(DynPath.PATH_SEPARATOR)))
+        List<String> pathComponents = pathStream.flatMap(ps -> Arrays.stream(ps.split(PATH_SEPARATOR)))
                 .collect(Collectors.toCollection(ArrayList<String>::new));
         return pathComponents;
     }
 
-    static DynRoute fromPathNames(String first, String... more) {
+    public static DynRoute fromPathNames(String first, String... more) {
         // NOTE: null-check?
         boolean isAbsolute = first.startsWith(PATH_SEPARATOR);
         if (isAbsolute) {
@@ -127,13 +131,14 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         return new DynRoute(isAbsolute, path);
     }
 
-    static DynRoute fromUri(URI uri) {
+    public static DynRoute fromUri(URI uri) {
         // NOTE: null-check?
         List<String> path = decomposePathString(uri.getPath());
         return new DynRoute(true, path, uri.getQuery(), uri.getFragment());
     }
 
-    static DynRoute fromPathNameList(boolean isAbsolute, List<String> path) {
+    public static DynRoute fromPathNameList(boolean isAbsolute, List<String> path) {
+        // NOTE: null-check?
         return new DynRoute(isAbsolute, new ArrayList<>(path));
     }
 
@@ -142,7 +147,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
 
     @Override
     public String toString() {
-        return path.stream().collect(Collectors.joining(DynPath.PATH_SEPARATOR, DynPath.PATH_SEPARATOR, null));
+        return path.stream().collect(Collectors.joining(PATH_SEPARATOR, PATH_SEPARATOR, ""));
     }
 
     //
@@ -219,6 +224,14 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
             return null;
         } else {
             return getNameImpl(getNameCount() - 1);
+        }
+    }
+
+    public String getFileNameAsString() {
+        if (getNameCount() == 0) {
+            return null;
+        } else {
+            return getNameAsString(getNameCount() - 1);
         }
     }
 
@@ -362,8 +375,34 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     // Implementation: Route Relativization
 
     public DynRoute relativize(DynRoute other) {
-        // TODO Implementation: Method
-        throw new NotImplementedException("Not yet implemented");
+        if (isAbsolute() != other.isAbsolute())
+            throw new IllegalArgumentException("Exactly one of this and other has a root component");
+
+        DynRoute src = this.normalize();
+        DynRoute dst = other.normalize();
+
+        if (src.getNameCount() == 0)
+            return dst;
+        if (PATH_PARENT.equals(src.getName(0)))
+            throw new IllegalArgumentException("Cannot return to . from this");
+
+        int commonNames = 0;
+        while (commonNames < src.getNameCount() && commonNames < dst.getNameCount()) {
+            if (src.getName(commonNames).equals(dst.getName(commonNames)))
+                commonNames++;
+        }
+
+        int numBacktracks = src.getNameCount() - commonNames;
+
+        List<String> relativePath = new LinkedList<>();
+        for (int i = 0; i < numBacktracks; i++) {
+            relativePath.add(PATH_PARENT);
+        }
+        for (int i = commonNames; i < dst.getNameCount(); i++) {
+            relativePath.add(dst.getNameAsString(i));
+        }
+
+        return DynRoute.fromPathNameList(false, relativePath);
     }
 
     //
@@ -394,20 +433,23 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     // Implementation: Route Resolution by File System
 
     public DynRoute toRealRoute(DynFileSystem<?> fs, LinkOption... options) throws IOException {
-        // TODO Implementation: Method
-        // NOTE: Delegate -> FS -> Store
-        // NOTE: Generic abstract framework DynFile<Node>, DynDirectory<Node>,
-        // DynLink<Node> classes? abstract DynRoute DynLink.follow()
-        return fs.toRealRoute(this, options);
+        return lookup(fs, options).getRoute();
     }
 
     //
-    // Implementation: Conversion to DynNode by FileSystem
+    // Implementation: DynNode Lookup by FileSystem
 
-    public <Space extends DynSpace<Space>> DynNode<Space, ?> toDynNode(DynFileSystem<Space> fs) {
-        // TODO Implementation: Method
-        // NOTE: Delegate -> FS -> Store
-        return fs.toDynNode(this);
+    public <Space extends DynSpace<Space>> DynNode<Space, ?> lookup(DynFileSystem<Space> fs, LinkOption... options)
+            throws IOException {
+        LinkOptions linkOptions = LinkOptions.parse(options);
+
+        ResolutionResult<Space> resolution = fs.getStore().resolve(this, !linkOptions.nofollowLinks);
+        if (resolution.isSuccess()) {
+            return resolution.node();
+        } else {
+            resolution.throwException();
+            return null;
+        }
     }
 
     //

@@ -1,12 +1,13 @@
-package dynfs.core.file;
+package dynfs.core;
 
 import java.io.IOException;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
+import java.util.Map;
 
-import dynfs.core.DynSpace;
+import org.apache.commons.lang3.NotImplementedException;
 
 public class DynAttributes<Space extends DynSpace<Space>, Node extends DynNode<Space, Node>>
         implements BasicFileAttributes {
@@ -36,6 +37,18 @@ public class DynAttributes<Space extends DynSpace<Space>, Node extends DynNode<S
     @Override
     public final FileTime lastAccessTime() {
         return lastAccessTime;
+    }
+
+    public final void creationTime(FileTime t) {
+        creationTime = t;
+    }
+
+    public final void lastModifiedTime(FileTime t) {
+        lastModifiedTime = t;
+    }
+
+    public final void lastAccessTime(FileTime t) {
+        lastAccessTime = t;
     }
 
     //
@@ -81,27 +94,7 @@ public class DynAttributes<Space extends DynSpace<Space>, Node extends DynNode<S
     // Implementation: FileAttributesView
 
     public final BasicFileAttributeView basicFileAttributeView() {
-        return new BasicFileAttributeView() {
-            @Override
-            public void setTimes(FileTime lastModifiedTime, FileTime lastAccessTime, FileTime createTime)
-                    throws IOException {
-                // TODO: Check if closed
-                DynAttributes.this.creationTime = createTime;
-                DynAttributes.this.lastModifiedTime = lastModifiedTime;
-                DynAttributes.this.lastAccessTime = lastAccessTime;
-            }
-
-            @Override
-            public BasicFileAttributes readAttributes() throws IOException {
-                // TODO: Check if closed
-                return DynAttributes.this;
-            }
-
-            @Override
-            public String name() {
-                return node.getName();
-            }
-        };
+        return new DynAttributesView<Space>(node.getStore(), node.getRoute());
     }
 
     //
@@ -114,6 +107,23 @@ public class DynAttributes<Space extends DynSpace<Space>, Node extends DynNode<S
         this.creationTime = t;
         this.lastModifiedTime = t;
         this.lastAccessTime = t;
+    }
+
+    //
+    // Implementation: Read by Attribute Sets
+
+    Map<String, Object> readAttributes(String attributes)
+            throws IOException {
+        // TODO: Implementation
+        throw new NotImplementedException("Not yet implemented");
+    }
+
+    //
+    // Implementation: Set Attribute Value
+
+    void setAttribute(String attribute, Object value) {
+        // TODO: Implementation
+        throw new NotImplementedException("Not yet implemented");
     }
 
 }

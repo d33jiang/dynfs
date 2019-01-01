@@ -2,52 +2,84 @@ package dynfs.dynlm;
 
 import java.io.IOException;
 
-public class LMFile extends LMNode {
+import dynfs.core.DynFile;
+import dynfs.core.DynNode;
+import dynfs.core.io.DynFileIO;
 
-	private long size;
-	private BlockList data;
+public class LMFile extends DynFile<LMSpace, LMFile> {
 
-	LMFile(LMNode parent, String name) throws IOException {
-		super(parent.getStore(), parent, name, false);
-		validateName(name);
+    //
+    // Field: Data
 
-		size = 0;
-		data = new BlockList(parent.getStore(), this);
-	}
+    private BlockList data;
+    private long size;
 
-	@Override
-	public boolean isRegularFile() {
-		return true;
-	}
+    //
+    // Interface: Data
 
-	@Override
-	public boolean isDirectory() {
-		return false;
-	}
+    BlockLike getData() {
+        // TODO: Restrict interface to expose only read/write methods?
+        return data;
+    }
 
-	@Override
-	public boolean isSymbolicLink() {
-		return false;
-	}
+    //
+    // Interface: Size
 
-	@Override
-	public boolean isOther() {
-		return false;
-	}
+    @Override
+    public long size() {
+        return size;
+    }
 
-	@Override
-	public long size() {
-		return size;
-	}
+    @Override
+    public void setSize(long size) throws IOException {
+        this.data.setSize(LMSpace.getIntValue(size));
+        this.size = size;
+    }
 
-	void setSize(int size) throws IOException {
-		this.data.setSize(size);
-		this.size = size;
-	}
-	
-	BlockLike getData() {
-		// TODO: Restrict interface to expose only read/write methods
-		return data;
-	}
-	
+    //
+    // Construction
+
+    protected LMFile(LMSpace store, LMDirectory parent, String name) throws IOException {
+        super(store, parent, name);
+
+        size = 0;
+        data = new BlockList(store.getMemory(), this);
+    }
+
+    //
+    // Interface: DynFileIO
+
+    @Override
+    public DynFileIO<LMSpace, LMFile> getIOInterface() throws IOException {
+        return new DynFileIO<LMSpace, LMFile>(this) {
+            @Override
+            protected void uncheckedWriteByte(long off, byte val) {
+                data.uncheckedWriteByte(LMSpace.getIntValue(off), val);
+            }
+
+            @Override
+            protected void uncheckedWrite(long off, byte[] src, int srcOff, int len) {
+                data.uncheckedWrite(LMSpace.getIntValue(off), src, srcOff, len);
+            }
+
+            @Override
+            protected byte uncheckedReadByte(long off) {
+                return data.uncheckedReadByte(LMSpace.getIntValue(off));
+            }
+
+            @Override
+            protected void uncheckedRead(long off, byte[] dst, int dstOff, int len) {
+                data.uncheckedRead(LMSpace.getIntValue(off), dst, dstOff, len);
+            }
+        };
+    }
+
+    //
+    // Interface: Equals Node
+
+    @Override
+    public boolean equalsNode(DynNode<LMSpace, ?> other) {
+        return this == other;
+    }
+
 }

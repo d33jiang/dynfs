@@ -27,12 +27,22 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import dynfs.core.options.AccessModes;
+import dynfs.core.options.CopyOptions;
+import dynfs.core.options.LinkOptions;
+import dynfs.core.options.OpenOptions;
 import dynfs.core.path.DynPath;
 import dynfs.core.path.DynRoute;
 import dynfs.core.store.DynSpaceFactory;
 import dynfs.core.store.DynSpaceLoader;
 
 public final class DynFileSystemProvider extends FileSystemProvider {
+
+    // TODO: Javadocs (project-wide)
+    // TODO: Interface Specification Adherence (project-wide)
+    // TODO: Design WeakReference cut to give control over memory management to impl
+    // TODO: Atomic I/O
+    // TODO: Builder / Prototype pattern for Options
 
     //
     // Instance
@@ -152,18 +162,19 @@ public final class DynFileSystemProvider extends FileSystemProvider {
 
     // by domain, using existing factory, with provided environment
     public DynFileSystem<?> newFileSystem(String domain, Map<String, ?> env) throws IOException {
-        return newFileSystem(domain, null, env);
+        return newFileSystem(domain, this.storeFactory, env);
     }
 
     // by domain, using provided factory, with provided environment
-    public DynFileSystem<?> newFileSystem(String domain, DynSpaceFactory<?> storeFactory, Map<String, ?> env)
+    public <Space extends DynSpace<Space>> DynFileSystem<Space> newFileSystem(String domain,
+            DynSpaceFactory<Space> storeFactory, Map<String, ?> env)
             throws IOException {
         if (domain == null) {
             throw new IllegalArgumentException("A domain must be specified");
         }
 
         if (storeFactory == null) {
-            storeFactory = this.storeFactory;
+            throw new NullPointerException("storeFactory is null");
         }
 
         return newFileSystemImpl(domain, storeFactory, env);
@@ -301,7 +312,7 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs)
             throws IOException {
         DynFileSystem<?> fs = getFileSystemFromPath(path);
-        return fs.newByteChannel(getDynRoute(path), options, attrs);
+        return fs.newByteChannel(getDynRoute(path), OpenOptions.parse(options), attrs);
     }
 
     @Override
@@ -326,10 +337,12 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     public void copy(Path source, Path target, CopyOption... options) throws IOException {
         DynFileSystem<?> fsSrc = getFileSystemFromPath(source);
         DynFileSystem<?> fsDst = getFileSystemFromPath(target);
+        CopyOptions copyOptions = CopyOptions.parse(options);
+
         if (fsSrc == fsDst) {
-            fsSrc.copy(getDynRoute(source), getDynRoute(target), options);
+            fsSrc.copy(getDynRoute(source), getDynRoute(target), copyOptions);
         } else {
-            DynFileSystemGeneralCopier.copy(fsSrc, fsDst, getDynRoute(source), getDynRoute(target), options);
+            DynFileSystemGeneralCopier.copy(fsSrc, fsDst, getDynRoute(source), getDynRoute(target), copyOptions);
         }
     }
 
@@ -337,10 +350,12 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     public void move(Path source, Path target, CopyOption... options) throws IOException {
         DynFileSystem<?> fsSrc = getFileSystemFromPath(source);
         DynFileSystem<?> fsDst = getFileSystemFromPath(target);
+        CopyOptions copyOptions = CopyOptions.parse(options);
+
         if (fsSrc == fsDst) {
-            fsSrc.move(getDynRoute(source), getDynRoute(target), options);
+            fsSrc.move(getDynRoute(source), getDynRoute(target), copyOptions);
         } else {
-            DynFileSystemGeneralCopier.move(fsSrc, fsDst, getDynRoute(source), getDynRoute(target), options);
+            DynFileSystemGeneralCopier.move(fsSrc, fsDst, getDynRoute(source), getDynRoute(target), copyOptions);
         }
     }
 
@@ -368,32 +383,32 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     @Override
     public void checkAccess(Path path, AccessMode... modes) throws IOException {
         DynFileSystem<?> fs = getFileSystemFromPath(path);
-        fs.checkAccess(getDynRoute(path), modes);
+        fs.checkAccess(getDynRoute(path), AccessModes.parse(modes));
     }
 
     @Override
     public <V extends FileAttributeView> V getFileAttributeView(Path path, Class<V> type, LinkOption... options) {
         DynFileSystem<?> fs = getFileSystemFromPath(path);
-        return fs.getFileAttributeView(getDynRoute(path), type, options);
+        return fs.getFileAttributeView(getDynRoute(path), type, LinkOptions.parse(options));
     }
 
     @Override
     public <A extends BasicFileAttributes> A readAttributes(Path path, Class<A> type, LinkOption... options)
             throws IOException {
         DynFileSystem<?> fs = getFileSystemFromPath(path);
-        return fs.readAttributes(getDynRoute(path), type, options);
+        return fs.readAttributes(getDynRoute(path), type, LinkOptions.parse(options));
     }
 
     @Override
     public Map<String, Object> readAttributes(Path path, String attributes, LinkOption... options) throws IOException {
         DynFileSystem<?> fs = getFileSystemFromPath(path);
-        return fs.readAttributes(getDynRoute(path), attributes, options);
+        return fs.readAttributes(getDynRoute(path), attributes, LinkOptions.parse(options));
     }
 
     @Override
     public void setAttribute(Path path, String attribute, Object value, LinkOption... options) throws IOException {
         DynFileSystem<?> fs = getFileSystemFromPath(path);
-        fs.setAttribute(getDynRoute(path), attribute, value, options);
+        fs.setAttribute(getDynRoute(path), attribute, value, LinkOptions.parse(options));
     }
 
 }

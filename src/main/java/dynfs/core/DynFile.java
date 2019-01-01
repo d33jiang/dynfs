@@ -1,6 +1,8 @@
-package dynfs.core.file;
+package dynfs.core;
 
-import dynfs.core.DynSpace;
+import java.io.IOException;
+
+import dynfs.core.io.DynFileIO;
 
 public abstract class DynFile<Space extends DynSpace<Space>, Node extends DynFile<Space, Node>>
         extends DynNode<Space, Node> {
@@ -20,5 +22,15 @@ public abstract class DynFile<Space extends DynSpace<Space>, Node extends DynFil
         super(store, parent, name);
         validateName(name);
     }
+
+    //
+    // Implementation Stub: Size (Abstract)
+
+    public abstract void setSize(long newSize) throws IOException;
+
+    //
+    // Interface: File I/O
+
+    public abstract DynFileIO<Space, Node> getIOInterface() throws IOException;
 
 }

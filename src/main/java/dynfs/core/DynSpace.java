@@ -2,13 +2,14 @@ package dynfs.core;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.file.ClosedFileSystemException;
 import java.nio.file.FileStore;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.attribute.FileStoreAttributeView;
 import java.util.Set;
 
-import dynfs.core.file.DynRootDirectory;
-import dynfs.core.store.DynFileIO;
+import dynfs.core.path.DynRoute;
+import dynfs.core.store.DynSpaceIO;
 
 public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore implements Closeable {
 
@@ -131,17 +132,44 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
     //
     // Implementation Stub: Close (Abstract)
 
+    private boolean isClosed;
+
+    public final boolean isClosed() {
+        return isClosed;
+    }
+
+    public final void throwIfClosed() throws IOException {
+        if (isClosed)
+            throw new ClosedFileSystemException();
+    }
+
     @Override
-    public abstract void close() throws IOException;
+    public final void close() throws IOException {
+        closeImpl();
+        isClosed = true;
+    }
+
+    protected abstract void closeImpl() throws IOException;
 
     //
     // Implementation Stub: I/O Interface (Abstract)
 
-    protected abstract DynFileIO getIOInterface();
+    protected abstract DynSpaceIO<Space> getIOInterface();
 
     //
     // Implementation Stub: Root Directory
 
-    public abstract <DirNode extends DynRootDirectory<Space, DirNode>> DynRootDirectory<Space, DirNode> getRootDirectory();
+    public abstract <DirNode extends DynDirectory<Space, DirNode>> DirNode getRootDirectory();
+
+    //
+    // Interface: Route Resolution
+
+    public final ResolutionResult<Space> resolve(DynRoute route) throws IOException {
+        return getRootDirectory().resolve(route);
+    }
+
+    public final ResolutionResult<Space> resolve(DynRoute route, boolean followLinks) throws IOException {
+        return getRootDirectory().resolve(route, followLinks);
+    }
 
 }

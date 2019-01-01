@@ -4,17 +4,20 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 import java.nio.file.CopyOption;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.LinkOption;
 import java.nio.file.OpenOption;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Set;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
+import dynfs.core.options.CopyOptions;
+import dynfs.core.options.OpenOptions;
 import dynfs.core.path.DynRoute;
 
 final class DynFileSystemGeneralCopier {
@@ -29,10 +32,9 @@ final class DynFileSystemGeneralCopier {
     //
     // Implementation: Copy
 
-    static void copy(DynFileSystem<?> fsSrc, DynFileSystem<?> fsDst, DynRoute src, DynRoute dst,
-            CopyOption... options) throws IOException {
-        CopyOptions copyOptions = CopyOptions.parse(options);
-
+    static <S1 extends DynSpace<S1>, S2 extends DynSpace<S2>> void copy(DynFileSystem<S1> fsSrc,
+            DynFileSystem<S2> fsDst, DynRoute src, DynRoute dst,
+            CopyOptions copyOptions) throws IOException {
         if (copyOptions.atomicMove) {
             throw new IllegalArgumentException("Atomic move is not supported by DynFileSystemGeneralCopier");
         }
@@ -40,8 +42,13 @@ final class DynFileSystemGeneralCopier {
         BasicFileAttributes srcAttributes = fsSrc.readAttributes(src, BasicFileAttributes.class,
                 copyOptions.getLinkOptions());
 
-        if (fsDst.exists(dst, copyOptions.nofollowLinks)) {
+        ResolutionResult<S2> dstResolution = fsDst.getStore().resolve(dst, !copyOptions.nofollowLinks);
+        if (dstResolution.exists()) {
             if (copyOptions.replaceExisting) {
+                if ((dstResolution.node() instanceof DynDirectory)
+                        && !((DynDirectory<S2, ?>) dstResolution.node()).isEmpty()) {
+                    throw new DirectoryNotEmptyException(dst.toString());
+                }
                 fsDst.delete(dst);
             } else {
                 throw new FileAlreadyExistsException(dst.toString());
@@ -51,11 +58,12 @@ final class DynFileSystemGeneralCopier {
         if (srcAttributes.isDirectory()) {
             fsDst.createDirectory(dst);
         } else {
-            Set<OpenOption> readOptions = Sets.newHashSet(StandardOpenOption.READ);
-            Set<OpenOption> writeOptions = Sets.newHashSet(StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW);
+            OpenOptions readOptions = OpenOptions.parse(ImmutableList.of(StandardOpenOption.READ));
+            OpenOptions writeOptions = OpenOptions
+                    .parse(ImmutableList.of(StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW));
             if (copyOptions.nofollowLinks) {
-                readOptions.add(LinkOption.NOFOLLOW_LINKS);
-                writeOptions.add(LinkOption.NOFOLLOW_LINKS);
+                readOptions.nofollowLinks = true;
+                writeOptions.nofollowLinks = true;
             }
 
             try (ByteChannel in = fsSrc.newByteChannel(src, readOptions);
@@ -90,58 +98,9 @@ final class DynFileSystemGeneralCopier {
     // Implementation: Move
 
     static void move(DynFileSystem<?> fsSrc, DynFileSystem<?> fsDst, DynRoute src, DynRoute dst,
-            CopyOption... options) throws IOException {
-        copy(fsSrc, fsDst, src, dst, options);
+            CopyOptions copyOptions) throws IOException {
+        copy(fsSrc, fsDst, src, dst, copyOptions);
         fsSrc.delete(src);
-    }
-
-    //
-    // Helper Structure: Copy Options
-
-    private static class CopyOptions {
-        private boolean atomicMove;
-        private boolean copyAttributes;
-        private boolean replaceExisting;
-        private boolean nofollowLinks;
-
-        private CopyOptions() {
-            atomicMove = false;
-            copyAttributes = false;
-            replaceExisting = false;
-            nofollowLinks = false;
-        }
-
-        private static CopyOptions parse(CopyOption[] options) {
-            CopyOptions result = new CopyOptions();
-
-            for (CopyOption option : options) {
-                if (option == StandardCopyOption.ATOMIC_MOVE) {
-                    result.atomicMove = true;
-                } else if (option == StandardCopyOption.COPY_ATTRIBUTES) {
-                    result.copyAttributes = true;
-                } else if (option == StandardCopyOption.REPLACE_EXISTING) {
-                    result.replaceExisting = true;
-                } else if (option == LinkOption.NOFOLLOW_LINKS) {
-                    result.nofollowLinks = true;
-                } else if (option == null) {
-                    throw new NullPointerException("null CopyOption encountered");
-                } else {
-                    throw new IllegalArgumentException("CopyOption " + option + " is unavailable");
-                }
-            }
-
-            return result;
-        }
-
-        private LinkOption[] getLinkOptions() {
-            if (nofollowLinks) {
-                return new LinkOption[] {
-                    LinkOption.NOFOLLOW_LINKS
-                };
-            } else {
-                return new LinkOption[] {};
-            }
-        }
     }
 
 }

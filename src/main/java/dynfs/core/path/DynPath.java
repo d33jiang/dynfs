@@ -3,7 +3,6 @@ package dynfs.core.path;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
@@ -12,36 +11,13 @@ import java.nio.file.WatchEvent.Modifier;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import com.google.common.collect.ImmutableList;
 
 import dynfs.core.DynFileSystem;
-import dynfs.core.DynFileSystemProvider;
+import dynfs.core.DynNode;
 
 public final class DynPath implements Path {
-
-    //
-    // Constant: Root Path String
-
-    public static final String ROOT_PATH_STRING = "/";
-
-    //
-    // Constant: Path Separator
-
-    public static final String PATH_SEPARATOR = "/";
-
-    //
-    // Constant: Special Path Names
-
-    public static final String PATH_CURDIR = ".";
-    public static final String PATH_PARENT = "..";
 
     //
     // Field: File System
@@ -262,7 +238,11 @@ public final class DynPath implements Path {
 
     @Override
     public File toFile() {
-        return route.toDynNode(fs);
+        throw new UnsupportedOperationException("DynPath is not interoperable with the java.io.File class");
+    }
+
+    public DynNode<?, ?> toDynNode() throws IOException {
+        return route.lookup(fs);
     }
 
     //

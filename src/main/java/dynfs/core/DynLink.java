@@ -1,6 +1,5 @@
-package dynfs.core.file;
+package dynfs.core;
 
-import dynfs.core.DynSpace;
 import dynfs.core.path.DynRoute;
 
 public abstract class DynLink<Space extends DynSpace<Space>, Node extends DynLink<Space, Node>>

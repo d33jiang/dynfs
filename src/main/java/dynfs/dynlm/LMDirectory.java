@@ -1,66 +1,104 @@
 package dynfs.dynlm;
 
+import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
-import dynfs.core.file.DynNode;
+import dynfs.core.DynDirectory;
+import dynfs.core.DynNode;
 
-public class LMDirectory extends LMNode {
+public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
 
     //
     // Field: Children
 
-    private final Map<String, DynNode<Space, ?>> children = new HashMap<>();
+    private final Map<String, DynNode<LMSpace, ?>> children = new HashMap<>();
 
-    //
-    // Construction: Root Directories
-
-    static LMDirectory createRootDirectory(LMSpace store) {
-        return new LMDirectory(store);
-    }
-
-    private LMDirectory(LMSpace store) {
-        super(store, null, null, true);
+    // TODO: Hack
+    public Map<String, DynNode<LMSpace, ?>> children() {
+        return children;
     }
 
     //
-    // Regular Directories
+    // Construction
 
-    LMDirectory(LMNode parent, String name) {
-        super(parent.getStore(), parent, name, true);
-        validateName(name);
+    // Root Directory
+    protected LMDirectory(LMSpace store) {
+        super(store);
     }
 
-    @Override
-    public boolean isRegularFile() {
-        return false;
+    // Non-Root Directory
+    protected LMDirectory(LMSpace store, LMDirectory parent, String name) {
+        super(store, parent, name);
     }
 
+    //
+    // Implementation: Iterable<DynNode<>>
+
     @Override
-    public boolean isDirectory() {
-        return true;
+    public Iterator<DynNode<LMSpace, ?>> iterator() {
+        return children.values().iterator();
     }
 
+    //
+    // Implementation: Child Resolution
+
     @Override
-    public boolean isSymbolicLink() {
-        return false;
+    protected DynNode<LMSpace, ?> resolveChild(String name) throws IOException {
+        return children.get(name);
     }
 
-    @Override
-    public boolean isOther() {
-        return false;
+    //
+    // Debug: Tree Dump
+
+    public TreeDump getTreeDump() {
+        return new TreeDump(this);
     }
 
-    @Override
-    public long size() {
-        // NOTE: Naive recursive definition
-        long s = 0;
+    public static final class TreeDump {
+        private final LMDirectory root;
+        private String lastDump;
 
-        for (LMNode n : this) {
-            s += n.size();
+        private TreeDump(LMDirectory root) {
+            this.root = root;
+            this.lastDump = null;
         }
 
-        return s;
+        public TreeDump build() {
+            StringBuilder sb = new StringBuilder();
+
+            dump(sb, 0, root);
+
+            sb.deleteCharAt(sb.length() - 1);
+            lastDump = sb.toString();
+
+            return this;
+        }
+
+        private void dump(StringBuilder sb, int newDepth, DynNode<LMSpace, ?> newRoot) {
+            sb.append(newRoot.getPathString());
+            sb.append('\n');
+            if (newRoot instanceof LMDirectory) {
+                LMDirectory dir = (LMDirectory) newRoot;
+                for (DynNode<LMSpace, ?> child : dir) {
+                    dump(sb, newDepth + 1, child);
+                }
+            }
+        }
+
+        @Override
+        public String toString() {
+            return lastDump;
+        }
+    }
+
+    //
+    // Interface: Equals Node
+
+    @Override
+    public boolean equalsNode(DynNode<LMSpace, ?> other) {
+        return this == other;
     }
 
 }

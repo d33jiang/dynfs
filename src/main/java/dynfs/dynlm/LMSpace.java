@@ -1,40 +1,34 @@
 package dynfs.dynlm;
 
 import java.io.IOException;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.file.AccessMode;
-import java.nio.file.CopyOption;
-import java.nio.file.DirectoryStream;
-import java.nio.file.DirectoryStream.Filter;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.FileSystemException;
-import java.nio.file.LinkOption;
-import java.nio.file.OpenOption;
-import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.attribute.FileStoreAttributeView;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
+import org.apache.commons.lang3.NotImplementedException;
+
+import dynfs.core.DynDirectory;
+import dynfs.core.DynFile;
+import dynfs.core.DynNode;
 import dynfs.core.DynSpace;
-import dynfs.core.path.DynPath;
+import dynfs.core.options.LinkOptions;
 import dynfs.core.path.DynRoute;
-import dynfs.core.path.DynPath.DynPathBody;
-import dynfs.core.store.DynFileIO;
-import dynfs.debug.Dumpable.DumpBuilder;
+import dynfs.core.store.DynSpaceIO;
 
-public class LMSpace extends DynSpace {
+public class LMSpace extends DynSpace<LMSpace> {
+
+    public static int getIntValue(long v) {
+        if (v > Integer.MAX_VALUE || v < Integer.MIN_VALUE)
+            throw new UnsupportedOperationException("Long values are not supported");
+
+        return (int) v;
+    }
 
     //
     // Implementation: DynSpace Properties
@@ -101,16 +95,32 @@ public class LMSpace extends DynSpace {
     }
 
     //
-    // Memory Management
+    // Field: Memory Management
 
-    private final Block[] blocks;
-    private final Map<Integer, LMNode> reservedBlocks;
-    private final List<Integer> freeBlocks;
+    private final LMMemory memory;
 
     //
-    // Directory Structure
+    // Interface: Memory Management
 
-    private LMNode root;
+    // TODO: package-private; public for testing
+    public LMMemory getMemory() {
+        return memory;
+    }
+
+    //
+    // Field: Directory Structure
+
+    private LMDirectory root;
+
+    //
+    // Implementation: Root Directory
+
+    // Javac fails to determine that LMDirectory satisfies DirNode
+    @SuppressWarnings("unchecked")
+    @Override
+    public LMDirectory getRootDirectory() {
+        return root;
+    }
 
     //
     // Construction
@@ -118,317 +128,98 @@ public class LMSpace extends DynSpace {
     public LMSpace(int totalSpace) throws IOException {
         super(totalSpace);
 
-        this.blocks = new Block[Block.numBlocks(totalSpace)];
-        for (int i = 0; i < blocks.length; i++) {
-            this.blocks[i] = new Block(i);
-        }
-
-        this.reservedBlocks = new HashMap<>();
-        this.freeBlocks = IntStream.range(0, blocks.length).boxed().collect(Collectors.toCollection(LinkedList::new));
-
-        this.root = LMDirectory.createRootDirectory(this);
+        this.memory = new LMMemory(this::setAllocatedSpace, totalSpace);
+        this.root = new LMDirectory(this);
     }
 
     //
-    // Memory Management
-
-    private void updateUsedSpace() {
-        setAllocatedSpace(Block.sizeOfNBlocks(reservedBlocks.size()));
-    }
-
-    List<Block> allocateBlocks(LMFile f, int nblocks) throws IOException {
-        if (nblocks > freeBlocks.size()) {
-            throw new FileSystemException(f.getPathString(), null, "Out of memory");
-        }
-
-        List<Block> allocated = new LinkedList<>();
-        for (int i = 0; i < nblocks; i++) {
-            int index = freeBlocks.remove(0);
-
-            Block block = blocks[index];
-            allocated.add(block);
-
-            block.setOwner(f);
-            reservedBlocks.put(index, f);
-        }
-        updateUsedSpace();
-
-        return allocated;
-    }
-
-    void freeBlocks(LMFile f, List<Block> blocks) {
-        for (Block b : blocks) {
-            if (reservedBlocks.get(b.getIndex()) != f)
-                throw new IllegalArgumentException("Attempt to free wrongly associated block");
-        }
-
-        for (Block b : blocks) {
-            reservedBlocks.remove(b.getIndex());
-            b.setOwner(null);
-
-            freeBlocks.add(b.getIndex());
-        }
-        updateUsedSpace();
-    }
-
-    //
-    // Close
+    // Implementation: Close
 
     @Override
-    public void close() throws IOException {
-        for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = null;
-        }
+    public void closeImpl() throws IOException {
+        memory.close();
         root = null;
     }
 
     //
-    // I/O
+    // Implementation: I/O Interface
 
-    private final FileIO io = new FileIO();
+    private final LMSpaceIO io = new LMSpaceIO();
 
     @Override
-    protected DynFileIO getIOInterface() {
+    protected DynSpaceIO<LMSpace> getIOInterface() {
         return io;
     }
 
-    private static class PathResolution {
-        private final LMNode node;
-        private final int numRemainingPathNames;
+    public class LMSpaceIO implements DynSpaceIO<LMSpace> {
 
-        private PathResolution(LMNode lastNode, int numRemainingPathNames) {
-            this.node = lastNode;
-            this.numRemainingPathNames = numRemainingPathNames;
-        }
-    }
-
-    private PathResolution resolvePathBody(DynRoute path) {
-        return resolvePathBody(path, path.pathSize());
-    }
-
-    private PathResolution resolvePathBody(DynRoute path, int limit) {
-        limit = Math.min(path.pathSize(), limit);
-
-        Iterator<String> iter = path.path().iterator();
-        LMNode n = root;
-
-        while (limit > 0) {
-            LMNode m = n.resolve(iter.next());
-            if (m == null) {
-                return new PathResolution(n, limit);
-            }
-            n = m;
-            limit--;
-        }
-        return new PathResolution(n, 0);
-    }
-
-    public class FileIO implements DynFileIO {
+        // TODO: Forego DynSpaceIO interface; put abstract methods in DynFile,
+        // DynDirectory
 
         @Override
-        public SeekableByteChannel newByteChannel(DynRoute path, Set<? extends OpenOption> options,
+        public DynFile<LMSpace, ?> createFile(DynDirectory<LMSpace, ?> parent, String name, FileAttribute<?>... attrs)
+                throws IOException {
+            LMFile file = new LMFile(LMSpace.this, (LMDirectory) parent, name);
+            ((LMDirectory) parent).children().put(name, file);
+            return file;
+        }
+
+        @Override
+        public DynDirectory<LMSpace, ?> createDirectory(DynDirectory<LMSpace, ?> parent, String name,
                 FileAttribute<?>... attrs) throws IOException {
-            PathResolution res = resolvePathBody(path);
-
-            // TODO Implementation: Method
-
-            // Create parent directories?
-            return null;
+            LMDirectory file = new LMDirectory(LMSpace.this, (LMDirectory) parent, name);
+            ((LMDirectory) parent).children().put(name, file);
+            return file;
         }
 
         @Override
-        public DirectoryStream<Path> newDirectoryStream(DynRoute dir, Filter<? super Path> filter)
-                throws IOException {
-            PathResolution res = resolvePathBody(dir);
-
-            // TODO Implementation: Method
-            return null;
-        }
-
-        @Override
-        public void createDirectory(DynRoute dir, FileAttribute<?>... attrs) throws IOException {
-            PathResolution res = resolvePathBody(dir);
-            if (res.numRemainingPathNames != 1)
-                throw new FileAlreadyExistsException(dir);
-            // TODO Implementation: Method
-        }
-
-        @Override
-        public void delete(DynRoute path) throws IOException {
-            PathResolution res = resolvePathBody(path);
-
-            // TODO Implementation: Method
-        }
-
-        @Override
-        public void copy(Path source, DynRoute target, boolean deleteSource, CopyOption... options)
-                throws IOException {
-            if (source instanceof DynPath) {
-                copy(((DynPath) source).route(), target, deleteSource, options);
-            } else {
-                // TODO Implementation: Method
-
-            }
-        }
-
-        private void copy(DynRoute source, DynRoute target, boolean deleteSource, CopyOption[] options)
-                throws IOException {
-            PathResolution resSrc = resolvePathBody(source);
-            PathResolution resDst = resolvePathBody(target);
-
-            // TODO Implementation: Method
-        }
-
-        @Override
-        public boolean isSameFile(DynRoute path1, DynRoute path2) throws IOException {
-            PathResolution res1 = resolvePathBody(path1);
-            PathResolution res2 = resolvePathBody(path2);
-
-            // TODO Implementation: Method
-            return false;
-        }
-
-        @Override
-        public boolean isHidden(DynRoute path) throws IOException {
-            PathResolution res = resolvePathBody(path);
-
-            // TODO Implementation: Method
-            return false;
-        }
-
-        @Override
-        public void checkAccess(DynRoute path, AccessMode... modes) throws IOException {
-            PathResolution res = resolvePathBody(path);
-
-            // TODO Implementation: Method
-        }
-
-        @Override
-        public <V extends FileAttributeView> V getFileAttributeView(DynRoute path, Class<V> type,
-                LinkOption... options) {
-            PathResolution res = resolvePathBody(path);
-
-            // TODO Implementation: Method
-            return null;
-        }
-
-        @Override
-        public <A extends BasicFileAttributes> A readAttributes(DynRoute path, Class<A> type, LinkOption... options)
-                throws IOException {
-            PathResolution res = resolvePathBody(path);
-
-            // TODO Implementation: Method
-            return null;
-        }
-
-        @Override
-        public Map<String, Object> readAttributes(DynRoute path, String attributes, LinkOption... options)
-                throws IOException {
-            PathResolution res = resolvePathBody(path);
-
-            // TODO Implementation: Method
-            return null;
-        }
-
-        @Override
-        public void setAttribute(DynRoute path, String attribute, Object value, LinkOption... options)
-                throws IOException {
-            PathResolution res = resolvePathBody(path);
-
-            // TODO Implementation: Method
-
-        }
-
-    }
-
-    //
-    // Debug: Core Dump
-
-    public CoreDump getCoreDump() {
-        return new CoreDump(blocks, reservedBlocks, freeBlocks);
-    }
-
-    public static final class CoreDump {
-        private final Block[] blocks;
-        private final Map<Integer, LMNode> reservedBlocks;
-        private final List<Integer> freeBlocks;
-
-        private String lastDump;
-
-        private CoreDump(Block[] blocks, Map<Integer, LMNode> reservedBlocks, List<Integer> freeBlocks) {
-            this.blocks = blocks;
-            this.reservedBlocks = reservedBlocks;
-            this.freeBlocks = freeBlocks;
-            this.lastDump = null;
-        }
-
-        public CoreDump build() {
-            StringBuilder sb = new StringBuilder();
-
-            sb.append("       # Blocks: " + blocks.length + "\n");
-            sb.append("Reserved Blocks:\n");
-            reservedBlocks.entrySet().stream().map(e -> e.getKey() + " -> " + e.getValue())
-                    .collect(Collectors.joining(" | "));
-            sb.append("    Free Blocks: " + freeBlocks + "\n");
-
-            sb.deleteCharAt(sb.length() - 1);
-            lastDump = sb.toString();
-
-            return this;
-        }
-
-        @Override
-        public String toString() {
-            return lastDump;
-        }
-    }
-
-    //
-    // Debug: Block Dump
-
-    public DumpBuilder dumpBlock(int i) {
-        return blocks[i].dump();
-    }
-
-    //
-    // Debug: Tree Dump
-
-    public TreeDump getTreeDump() {
-        return new TreeDump(root);
-    }
-
-    public static final class TreeDump {
-        private final LMNode root;
-        private String lastDump;
-
-        private TreeDump(LMNode root) {
-            this.root = root;
-            this.lastDump = null;
-        }
-
-        public TreeDump build() {
-            StringBuilder sb = new StringBuilder();
-
-            dump(sb, 0, root);
-
-            sb.deleteCharAt(sb.length() - 1);
-            lastDump = sb.toString();
-
-            return this;
-        }
-
-        private void dump(StringBuilder sb, int newDepth, LMNode newRoot) {
-            sb.append(newRoot.getPathString());
-            sb.append('\n');
-            for (LMNode child : newRoot) {
-                dump(sb, newDepth + 1, child);
+        public void delete(DynNode<LMSpace, ?> node) throws IOException {
+            if (node instanceof LMFile) {
+                LMFile file = (LMFile) node;
+                file.setSize(0);
+            } else if (node instanceof LMDirectory) {
+                LMDirectory dir = (LMDirectory) node;
+                for (DynNode<LMSpace, ?> n : dir) {
+                    n.delete();
+                }
             }
         }
 
         @Override
-        public String toString() {
-            return lastDump;
+        public void copy(DynNode<LMSpace, ?> src, DynNode<LMSpace, ?> dstParent, String dstName, boolean deleteSrc)
+                throws IOException {
+            // TODO: Auto-generated method stub
+            throw new NotImplementedException("Method stub");
         }
+
+        @Override
+        public <V extends FileAttributeView> V getFileAttributeView(DynRoute route, Class<V> type,
+                LinkOptions options) {
+            // TODO: Auto-generated method stub
+            throw new NotImplementedException("Method stub");
+        }
+
+        @Override
+        public <A extends BasicFileAttributes> A readAttributes(DynRoute route, Class<A> type, LinkOptions options)
+                throws IOException {
+            // TODO: Auto-generated method stub
+            throw new NotImplementedException("Method stub");
+        }
+
+        @Override
+        public Map<String, Object> readAttributes(DynRoute route, String attributes, LinkOptions options)
+                throws IOException {
+            // TODO: Auto-generated method stub
+            throw new NotImplementedException("Method stub");
+        }
+
+        @Override
+        public void setAttribute(DynRoute route, String attribute, Object value, LinkOptions options)
+                throws IOException {
+            // TODO: Auto-generated method stub
+            throw new NotImplementedException("Method stub");
+        }
+        // TODO: LMSpaceIO Implementation
     }
 
 }
