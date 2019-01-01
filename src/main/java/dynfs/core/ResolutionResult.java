@@ -54,6 +54,7 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
     //
     // Field: Internal Data
 
+    private final DynDirectory<Space, ?> lastParent;
     private final DynNode<Space, ?> node;
 
     private final DynRoute route;
@@ -69,11 +70,14 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
     //
     // Construction
 
-    ResolutionResult(DynNode<Space, ?> node, DynRoute route, int lastIndex, int endIndex, Result status) {
-        this(node, route, lastIndex, endIndex, status, null);
+    ResolutionResult(DynDirectory<Space, ?> lastParent, DynNode<Space, ?> node, DynRoute route, int lastIndex,
+            int endIndex, Result status) {
+        this(lastParent, node, route, lastIndex, endIndex, status, null);
     }
 
-    ResolutionResult(DynNode<Space, ?> node, DynRoute route, int lastIndex, int endIndex, Result status, Object cause) {
+    ResolutionResult(DynDirectory<Space, ?> lastParent, DynNode<Space, ?> node, DynRoute route, int lastIndex,
+            int endIndex, Result status, Object cause) {
+        this.lastParent = lastParent;
         this.node = node;
 
         this.route = route;
@@ -89,6 +93,10 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
 
     //
     // Interface: Field Access
+
+    public DynDirectory<Space, ?> lastParent() {
+        return lastParent;
+    }
 
     public DynNode<Space, ?> node() {
         return node;

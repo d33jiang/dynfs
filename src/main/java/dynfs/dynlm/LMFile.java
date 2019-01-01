@@ -78,8 +78,18 @@ public class LMFile extends DynFile<LMSpace, LMFile> {
     // Interface: Equals Node
 
     @Override
-    public boolean equalsNode(DynNode<LMSpace, ?> other) {
+    public boolean isSameFile(DynNode<LMSpace, ?> other) {
         return this == other;
     }
 
+    @Override
+    protected void deleteImpl() throws IOException {
+        setSize(0);
+    }
+
+    // TODO: DEBUG
+    @Override
+    public String toString() {
+        return getPathString();
+    }
 }

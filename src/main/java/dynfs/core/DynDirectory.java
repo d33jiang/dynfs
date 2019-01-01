@@ -1,6 +1,10 @@
 package dynfs.core;
 
 import java.io.IOException;
+import java.nio.file.CopyOption;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.spi.FileSystemProvider;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -41,6 +45,39 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     public long size() {
         return 0L;
     }
+
+    //
+    // Interface: I/O
+
+    /**
+     * @see FileSystemProvider#newByteChannel(Path, Set, FileAttribute...)
+     */
+    // File Creation
+    public abstract DynFile<Space, ?> createFile(String name, FileAttribute<?>... attrs)
+            throws IOException;
+
+    /**
+     * @see FileSystemProvider#createDirectory(Path, FileAttribute...)
+     */
+    // Directory Creation
+    public abstract DynDirectory<Space, ?> createDirectory(String name, FileAttribute<?>... attrs)
+            throws IOException;
+
+    // File Deletion
+    void deleteChild(String name, DynNode<Space, ?> node) throws IOException {
+        deleteChildImpl(name, node);
+        node.deleteImpl();
+    }
+
+    protected abstract void deleteChildImpl(String name, DynNode<Space, ?> node) throws IOException;
+
+    /**
+     * @see FileSystemProvider#copy(Path, Path, CopyOption...)
+     * @see FileSystemProvider#move(Path, Path, CopyOption...)
+     */
+    // Copy / Move
+    public abstract void copy(DynNode<Space, ?> src, String dstName, boolean deleteSrc)
+            throws IOException;
 
     //
     // Interface: Iterable<DynNode<>> (Abstract)
@@ -99,34 +136,34 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     }
 
     private final ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks,
-            int startIndex, int endIndex) throws IOException {
+            int index, int endIndex) throws IOException {
         getStore().throwIfClosed();
 
+        DynDirectory<Space, ?> lastParent = this;
         DynNode<Space, ?> lastNode = this;
-        DynDirectory<Space, ?> lastDir = this;
 
-        while (startIndex < endIndex) {
+        while (index < endIndex) {
             try {
-                lastNode = lastDir.resolveRouteName(route.getNameAsString(startIndex));
+                lastNode = lastParent.resolveRouteName(route.getNameAsString(index));
             } catch (IOException ex) {
-                return new ResolutionResult<Space>(lastDir, route, startIndex, endIndex,
+                return new ResolutionResult<Space>(lastParent, lastParent, route, index, endIndex,
                         Result.FAIL_IO_EXCEPTION_DURING_RESOLUTION, ex);
             }
 
             if (lastNode == null) {
-                return new ResolutionResult<Space>(lastDir, route, startIndex, endIndex,
+                return new ResolutionResult<Space>(lastParent, lastParent, route, index, endIndex,
                         Result.FAIL_NAME_NOT_FOUND);
             }
 
-            startIndex++;
+            index++;
 
-            if (startIndex < endIndex) {
+            if (index < endIndex) {
                 if (followLinks && lastNode instanceof DynLink) {
                     Set<DynLink<Space, ?>> visitedLinks = new HashSet<>();
                     while (lastNode instanceof DynLink) {
                         DynLink<Space, ?> link = (DynLink<Space, ?>) lastNode;
                         if (visitedLinks.contains(link)) {
-                            return new ResolutionResult<Space>(lastNode, route, startIndex, endIndex,
+                            return new ResolutionResult<Space>(lastParent, lastNode, route, index, endIndex,
                                     Result.FAIL_LINK_LOOP, link.getRoute());
                         }
 
@@ -134,7 +171,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
 
                         ResolutionResult<Space> resolution = getStore().resolve(link.follow());
                         if (!resolution.isSuccess()) {
-                            return new ResolutionResult<Space>(lastNode, route, startIndex, endIndex,
+                            return new ResolutionResult<Space>(lastParent, lastNode, route, index, endIndex,
                                     Result.FAIL_SUBRESOLUTION_FAILURE, resolution);
                         }
 
@@ -143,13 +180,16 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
                 }
 
                 if (!(lastNode instanceof DynDirectory)) {
-                    return new ResolutionResult<Space>(lastNode, route, startIndex, endIndex,
+                    return new ResolutionResult<Space>(lastParent, lastNode, route, index, endIndex,
                             Result.FAIL_NON_DIRECTORY_ENCOUNTERED);
                 }
+
+                lastParent = (DynDirectory<Space, ?>) lastNode;
             }
         }
 
-        return new ResolutionResult<Space>(lastNode, route, startIndex, endIndex, Result.SUCCESS_END_INDEX_REACHED);
+        return new ResolutionResult<Space>(lastParent, lastNode, route, index, endIndex,
+                Result.SUCCESS_END_INDEX_REACHED);
     }
 
 }

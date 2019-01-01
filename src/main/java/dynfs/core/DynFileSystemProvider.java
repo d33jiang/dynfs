@@ -19,14 +19,13 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import dynfs.core.io.DynFileSystemIO;
 import dynfs.core.options.AccessModes;
 import dynfs.core.options.CopyOptions;
 import dynfs.core.options.LinkOptions;
@@ -45,35 +44,12 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     // TODO: Builder / Prototype pattern for Options
 
     //
-    // Instance
+    // Construction
 
     public DynFileSystemProvider() {}
 
     //
-    // File System Resolution
-
-    private static void validateFileSystem(FileSystem fs) {
-        if (fs == null)
-            throw new NullPointerException("File system associated with Path is null");
-
-        if (!(fs instanceof DynFileSystem))
-            throw new ProviderMismatchException("File system associated with Path is not a DynFileSystem");
-
-        if (!(fs.provider() instanceof DynFileSystemProvider))
-            throw new IllegalStateException("DynFileSystem provider is not DynFileSystemProvider");
-    }
-
-    private static DynFileSystem<?> getFileSystemFromPath(Path p) {
-        if (p == null)
-            throw new NullPointerException("Path is null");
-
-        FileSystem fs = p.getFileSystem();
-        validateFileSystem(fs);
-        return (DynFileSystem<?>) fs;
-    }
-
-    //
-    // URI Resolution
+    // Helper: URI Resolution
 
     public static final String URI_SCHEME = "dynfs";
 
@@ -104,49 +80,20 @@ public final class DynFileSystemProvider extends FileSystemProvider {
         if (domain == null)
             throw new IllegalArgumentException("A domain must be specified");
 
-        DynFileSystem<?> fs = getFileSystemImpl(domain, true);
-
-        DynPath p = DynPath.newPathFromUri(fs, uri);
-        return p;
+        DynFileSystem<?> fs = getFileSystemImpl(domain);
+        return DynPath.newPathFromUri(fs, uri);
     }
 
     //
-    // File System Management: State
+    // State: File System Management
 
     private final Lock managedSystemsWriteLock = new ReentrantLock();
     private final Map<String, DynFileSystem<?>> managedSystems = new ConcurrentHashMap<>();
 
     //
-    // File System Creation: Defaults
-
-    private static final DynSpaceFactory<?> DEFAULT_STORE_FACTORY;
-    static {
-        DEFAULT_STORE_FACTORY = null; // TODO: Implementation
-    }
-
-    private static final Map<String, ?> DEFAULT_ENV;
-    static {
-        Map<String, ?> env = new HashMap<>();
-        DEFAULT_ENV = Collections.unmodifiableMap(env);
-    }
-
-    private DynSpaceFactory<?> storeFactory = DEFAULT_STORE_FACTORY;
-
-    public DynSpaceFactory<?> getStoreFactory() {
-        return storeFactory;
-    }
-
-    public void setStoreFactory(DynSpaceFactory<?> storeFactory) {
-        if (storeFactory == null)
-            storeFactory = DEFAULT_STORE_FACTORY;
-
-        this.storeFactory = storeFactory;
-    }
-
-    //
     // Implementation: File System Creation
 
-    // by URI, using existing factory, with provided environment
+    // by URI, with factory from provided environment
     @Override
     public DynFileSystem<?> newFileSystem(URI uri, Map<String, ?> env) throws IOException {
         validateUri(uri);
@@ -155,27 +102,21 @@ public final class DynFileSystemProvider extends FileSystemProvider {
         return newFileSystem(domain, env);
     }
 
-    // by domain, using existing factory, with default environment
-    public DynFileSystem<?> newFileSystem(String domain) throws IOException {
-        return newFileSystem(domain, DEFAULT_ENV);
-    }
-
-    // by domain, using existing factory, with provided environment
+    // by domain, with factory from provided environment
     public DynFileSystem<?> newFileSystem(String domain, Map<String, ?> env) throws IOException {
-        return newFileSystem(domain, this.storeFactory, env);
+        return newFileSystem(domain, (DynSpaceFactory<?>) env.get("storeFactory"), env);
     }
 
-    // by domain, using provided factory, with provided environment
+    // by domain, with factory from explicit parameter
     public <Space extends DynSpace<Space>> DynFileSystem<Space> newFileSystem(String domain,
             DynSpaceFactory<Space> storeFactory, Map<String, ?> env)
             throws IOException {
-        if (domain == null) {
+        if (domain == null)
+            throw new NullPointerException("domain is null");
+        if (domain.isEmpty())
             throw new IllegalArgumentException("A domain must be specified");
-        }
-
-        if (storeFactory == null) {
+        if (storeFactory == null)
             throw new NullPointerException("storeFactory is null");
-        }
 
         return newFileSystemImpl(domain, storeFactory, env);
     }
@@ -207,61 +148,42 @@ public final class DynFileSystemProvider extends FileSystemProvider {
 
         String domain = uri.getHost();
         if (domain == null)
+            throw new NullPointerException("domain is null");
+        if (domain.isEmpty())
             throw new IllegalArgumentException("A domain must be specified");
 
-        return getFileSystemImpl(domain, false);
+        return getFileSystemImpl(domain);
     }
 
-    private DynFileSystem<?> getFileSystemImpl(String domain, boolean createIfNonExistent) {
-        if (createIfNonExistent) {
-            try {
-                return ensureFileSystem(domain);
-            } catch (IOException ex) {
-                throw (FileSystemNotFoundException) new FileSystemNotFoundException(
-                        "Could not create file system with domain [" + domain + "]").initCause(ex);
-            }
+    public DynFileSystem<?> getFileSystem(String domain) {
+        DynFileSystem<?> fs = getFileSystemImpl(domain);
+        if (fs == null) {
+            throw new FileSystemNotFoundException("No open file system exists with domain [" + domain + "]");
         } else {
-            DynFileSystem<?> fs = managedSystems.get(domain);
-            if (fs == null) {
-                throw new FileSystemNotFoundException("No open file system exists with domain [" + domain + "]");
-            } else {
-                return fs;
-            }
+            return fs;
         }
     }
 
-    private DynFileSystem<?> ensureFileSystem(String domain) throws IOException {
-        managedSystemsWriteLock.lock();
-        try {
-            DynFileSystem<?> fs = managedSystems.get(domain);
-
-            if (fs == null) {
-                fs = newFileSystem(domain);
-                managedSystems.put(domain, fs);
-            }
-
-            return fs;
-        } finally {
-            managedSystemsWriteLock.unlock();
-        }
+    private DynFileSystem<?> getFileSystemImpl(String domain) {
+        return managedSystems.get(domain);
     }
 
     //
     // Implementation: File System Loading
 
-    // provided domain, using provided loader, with provided environment
+    // from provided loader
     public <Space extends DynSpace<Space>> DynFileSystem<Space> loadFileSystem(String domain,
-            DynSpaceLoader<Space> storeLoader, Map<String, ?> env) throws IOException {
+            DynSpaceLoader<Space> storeLoader) throws IOException {
         if (domain == null)
             throw new IllegalArgumentException("A domain must be specified");
         if (storeLoader == null)
             throw new IllegalArgumentException("A DynSpaceLoader must be provided");
 
-        return loadFileSystemImpl(domain, storeLoader, env);
+        return loadFileSystemImpl(domain, storeLoader);
     }
 
     private <Space extends DynSpace<Space>> DynFileSystem<Space> loadFileSystemImpl(String domain,
-            DynSpaceLoader<Space> storeLoader, Map<String, ?> env) throws IOException {
+            DynSpaceLoader<Space> storeLoader) throws IOException {
         managedSystemsWriteLock.lock();
         try {
             if (managedSystems.containsKey(domain)) {
@@ -269,7 +191,7 @@ public final class DynFileSystemProvider extends FileSystemProvider {
                         "An open file system with domain [" + domain + "] already exists");
             }
 
-            DynFileSystem<Space> fs = DynFileSystem.loadFileSystem(this, domain, storeLoader, env);
+            DynFileSystem<Space> fs = DynFileSystem.loadFileSystem(this, domain, storeLoader);
             managedSystems.put(domain, fs);
 
             return fs;
@@ -290,17 +212,40 @@ public final class DynFileSystemProvider extends FileSystemProvider {
 
     @SuppressWarnings("unused")
     private boolean __decoupleFileSystem(String domain, DynFileSystem<?> fs) {
-        return managedSystems.remove(domain, fs);
+        managedSystemsWriteLock.lock();
+        try {
+            return managedSystems.remove(domain, fs);
+        } finally {
+            managedSystemsWriteLock.unlock();
+        }
     }
 
     //
-    // Interface Delegation: File System Operations
+    // Helper: File System Resolution
+
+    private static void validateFileSystem(FileSystem fs) {
+        if (fs == null)
+            throw new NullPointerException("File system associated with Path is null");
+
+        if (!(fs instanceof DynFileSystem))
+            throw new ProviderMismatchException("File system associated with Path is not a DynFileSystem");
+
+        if (!(fs.provider() instanceof DynFileSystemProvider))
+            // NOTE: Should never happen given that the previous check passes
+            throw new IllegalStateException("DynFileSystem provider is not DynFileSystemProvider");
+    }
+
+    private static DynFileSystem<?> getFileSystemFromPath(Path p) {
+        if (p == null)
+            throw new NullPointerException("Path is null");
+
+        FileSystem fs = p.getFileSystem();
+        validateFileSystem(fs);
+        return (DynFileSystem<?>) fs;
+    }
+
     //
-    // DynFileSystemProvider and DynFileSystem are standardized. File system
-    // operation implementations are DynSpace-dependent. FS-identifying elements are
-    // stripped from DynPath inputs and resulting DynRoute instances are forwarded
-    // to DynFileSystem and DynSpace implementations.
-    //
+    // Helper: Path Resolution
 
     private static DynRoute getDynRoute(Path path) {
         DynPath dp = (DynPath) path;
@@ -308,55 +253,42 @@ public final class DynFileSystemProvider extends FileSystemProvider {
         return dp.route();
     }
 
+    //
+    // Interface Delegation: File System Operations
+
     @Override
     public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs)
             throws IOException {
-        DynFileSystem<?> fs = getFileSystemFromPath(path);
-        return fs.newByteChannel(getDynRoute(path), OpenOptions.parse(options), attrs);
+        return DynFileSystemIO.newByteChannel(getFileSystemFromPath(path), getDynRoute(path),
+                OpenOptions.parse(options),
+                attrs);
     }
 
     @Override
     public DirectoryStream<Path> newDirectoryStream(Path dir, Filter<? super Path> filter) throws IOException {
-        DynFileSystem<?> fs = getFileSystemFromPath(dir);
-        return fs.newDirectoryStream(getDynRoute(dir), filter);
+        return DynFileSystemIO.newDirectoryStream(getFileSystemFromPath(dir), getDynRoute(dir), filter);
     }
 
     @Override
     public void createDirectory(Path dir, FileAttribute<?>... attrs) throws IOException {
-        DynFileSystem<?> fs = getFileSystemFromPath(dir);
-        fs.createDirectory(getDynRoute(dir), attrs);
+        DynFileSystemIO.createDirectory(getFileSystemFromPath(dir), getDynRoute(dir), attrs);
     }
 
     @Override
     public void delete(Path path) throws IOException {
-        DynFileSystem<?> fs = getFileSystemFromPath(path);
-        fs.delete(getDynRoute(path));
+        DynFileSystemIO.delete(getFileSystemFromPath(path), getDynRoute(path));
     }
 
     @Override
-    public void copy(Path source, Path target, CopyOption... options) throws IOException {
-        DynFileSystem<?> fsSrc = getFileSystemFromPath(source);
-        DynFileSystem<?> fsDst = getFileSystemFromPath(target);
-        CopyOptions copyOptions = CopyOptions.parse(options);
-
-        if (fsSrc == fsDst) {
-            fsSrc.copy(getDynRoute(source), getDynRoute(target), copyOptions);
-        } else {
-            DynFileSystemGeneralCopier.copy(fsSrc, fsDst, getDynRoute(source), getDynRoute(target), copyOptions);
-        }
+    public void copy(Path src, Path dst, CopyOption... options) throws IOException {
+        DynFileSystemIO.copy(getFileSystemFromPath(src), getFileSystemFromPath(dst), getDynRoute(src), getDynRoute(dst),
+                CopyOptions.parse(options));
     }
 
     @Override
-    public void move(Path source, Path target, CopyOption... options) throws IOException {
-        DynFileSystem<?> fsSrc = getFileSystemFromPath(source);
-        DynFileSystem<?> fsDst = getFileSystemFromPath(target);
-        CopyOptions copyOptions = CopyOptions.parse(options);
-
-        if (fsSrc == fsDst) {
-            fsSrc.move(getDynRoute(source), getDynRoute(target), copyOptions);
-        } else {
-            DynFileSystemGeneralCopier.move(fsSrc, fsDst, getDynRoute(source), getDynRoute(target), copyOptions);
-        }
+    public void move(Path src, Path dst, CopyOption... options) throws IOException {
+        DynFileSystemIO.move(getFileSystemFromPath(src), getFileSystemFromPath(dst), getDynRoute(src), getDynRoute(dst),
+                CopyOptions.parse(options));
     }
 
     @Override
@@ -365,50 +297,47 @@ public final class DynFileSystemProvider extends FileSystemProvider {
         if (!fs.equals(getFileSystemFromPath(path2)))
             return false;
 
-        return fs.isSameFile(getDynRoute(path1), getDynRoute(path2));
+        return DynFileSystemIO.isSameFile(fs, getDynRoute(path1), getDynRoute(path2));
     }
 
     @Override
     public boolean isHidden(Path path) throws IOException {
-        DynFileSystem<?> fs = getFileSystemFromPath(path);
-        return fs.isHidden(getDynRoute(path));
+        return DynFileSystemIO.isHidden(getFileSystemFromPath(path), getDynRoute(path));
     }
 
     @Override
     public FileStore getFileStore(Path path) throws IOException {
-        DynFileSystem<?> fs = getFileSystemFromPath(path);
-        return fs.getStore();
+        return getFileSystemFromPath(path).getStore();
     }
 
     @Override
     public void checkAccess(Path path, AccessMode... modes) throws IOException {
-        DynFileSystem<?> fs = getFileSystemFromPath(path);
-        fs.checkAccess(getDynRoute(path), AccessModes.parse(modes));
+        DynFileSystemIO.checkAccess(getFileSystemFromPath(path), getDynRoute(path), AccessModes.parse(modes));
     }
 
     @Override
     public <V extends FileAttributeView> V getFileAttributeView(Path path, Class<V> type, LinkOption... options) {
-        DynFileSystem<?> fs = getFileSystemFromPath(path);
-        return fs.getFileAttributeView(getDynRoute(path), type, LinkOptions.parse(options));
+        return DynFileSystemIO.getFileAttributeView(getFileSystemFromPath(path), getDynRoute(path), type,
+                LinkOptions.parse(options));
     }
 
     @Override
     public <A extends BasicFileAttributes> A readAttributes(Path path, Class<A> type, LinkOption... options)
             throws IOException {
-        DynFileSystem<?> fs = getFileSystemFromPath(path);
-        return fs.readAttributes(getDynRoute(path), type, LinkOptions.parse(options));
+        return DynFileSystemIO.readAttributes(getFileSystemFromPath(path), getDynRoute(path), type,
+                LinkOptions.parse(options));
     }
 
     @Override
     public Map<String, Object> readAttributes(Path path, String attributes, LinkOption... options) throws IOException {
-        DynFileSystem<?> fs = getFileSystemFromPath(path);
-        return fs.readAttributes(getDynRoute(path), attributes, LinkOptions.parse(options));
+        return DynFileSystemIO.readAttributes(getFileSystemFromPath(path), getDynRoute(path), attributes,
+                LinkOptions.parse(options));
     }
 
     @Override
     public void setAttribute(Path path, String attribute, Object value, LinkOption... options) throws IOException {
-        DynFileSystem<?> fs = getFileSystemFromPath(path);
-        fs.setAttribute(getDynRoute(path), attribute, value, LinkOptions.parse(options));
+        DynFileSystemIO.setAttribute(getFileSystemFromPath(path), getDynRoute(path), attribute, value,
+                LinkOptions.parse(options));
     }
 
 }

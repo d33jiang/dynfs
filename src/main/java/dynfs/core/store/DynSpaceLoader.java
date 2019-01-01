@@ -6,5 +6,5 @@ import java.util.Map;
 import dynfs.core.DynSpace;
 
 public interface DynSpaceLoader<Space extends DynSpace<Space>> {
-    public Space loadStore(Map<String, ?> env) throws IOException;
+    public Space loadStore() throws IOException;
 }

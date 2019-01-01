@@ -1,7 +1,10 @@
 package dynfs.core;
 
 import java.io.IOException;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.spi.FileSystemProvider;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Map;
@@ -68,6 +71,9 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     //
     // Interface: Attributes
 
+    /**
+     * @see FileSystemProvider#readAttributes(Path, Class, LinkOption...)
+     */
     // I/O: File Attributes, Read by Subclass of BasicFileAttributes
     @SuppressWarnings("unchecked")
     public final <A extends BasicFileAttributes> A readAttributes(Class<A> type)
@@ -78,12 +84,18 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
         return (A) attributes();
     }
 
+    /**
+     * @see FileSystemProvider#readAttributes(Path, String, LinkOption...)
+     */
     // I/O: File Attributes, Read by String [Names of Attribute Sets]
     public Map<String, Object> readAttributes(String attributes)
             throws IOException {
         return attributes().readAttributes(attributes);
     }
 
+    /**
+     * @see FileSystemProvider#setAttribute(Path, String, Object, LinkOption...)
+     */
     // I/O: File Attributes, Set
     public void setAttribute(String attribute, Object value) throws IOException {
         attributes().setAttribute(attribute, value);
@@ -184,18 +196,25 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
         @SuppressWarnings("unchecked")
         DynNode<Space, ?> otherNode = (DynNode<Space, ?>) other;
 
-        return equalsNode(otherNode);
+        return isSameFile(otherNode);
     }
 
-    public abstract boolean equalsNode(DynNode<Space, ?> other);
+    public abstract boolean isSameFile(DynNode<Space, ?> other);
 
     //
-    // Interface: DynSpaceIO
+    // Interface: I/O
 
-    // TODO: Extend interface
+    /**
+     * @see FileSystemProvider#delete(Path)
+     */
+    public final void delete() throws IOException {
+        if (parent == null)
+            // TODO: Temporary exception; find better exception
+            throw new UnsupportedOperationException("Cannot delete root dir");
 
-    public void delete() throws IOException {
-        store.getIOInterface().delete(this);
+        parent.deleteChild(getName(), this);
     }
+
+    protected abstract void deleteImpl() throws IOException;
 
 }

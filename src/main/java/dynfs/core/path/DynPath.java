@@ -22,6 +22,7 @@ public final class DynPath implements Path {
     //
     // Field: File System
 
+    // NOTE: fs is nullable
     private final DynFileSystem<?> fs;
 
     @Override

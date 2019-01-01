@@ -24,6 +24,7 @@ public class DynByteChannel<Space extends DynSpace<Space>>
     private boolean isClosed;
     private final DynFile<Space, ?> file;
     private long position;
+
     private final boolean isReadOnly;
     private final boolean deleteOnClose;
 
@@ -74,7 +75,7 @@ public class DynByteChannel<Space extends DynSpace<Space>>
     //
     // Position
 
-    private static long verifyPosition(long size, String label) {
+    private static long validatePosition(long size, String label) {
         if (size < 0)
             throw new IllegalArgumentException(label + " must be nonnegative");
 
@@ -89,7 +90,7 @@ public class DynByteChannel<Space extends DynSpace<Space>>
     @Override
     public SeekableByteChannel position(long newPosition) throws IOException {
         throwIfClosed();
-        position = verifyPosition(newPosition, "newPosition");
+        position = validatePosition(newPosition, "newPosition");
         return this;
     }
 
@@ -118,7 +119,7 @@ public class DynByteChannel<Space extends DynSpace<Space>>
     public SeekableByteChannel truncate(long size) throws IOException {
         throwIfClosed();
         throwIfReadOnly();
-        file().setSize(verifyPosition(size, "size"));
+        file().setSize(validatePosition(size, "size"));
         return this;
     }
 

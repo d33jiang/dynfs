@@ -50,13 +50,34 @@ public class Main {
 
         ByteBuffer buf = ByteBuffer.allocate(256);
 
+        //
+
         SeekableByteChannel chan = dfsp.newByteChannel(DynPath.newPath(fs, "/foo/bar"),
                 ImmutableSet.of(StandardOpenOption.WRITE, StandardOpenOption.CREATE));
 
         buf.put("ABCDEFG".getBytes());
-        chan.write(buf);
+        buf.flip();
+
+        System.out.println(chan.write(buf));
+        buf.flip();
 
         chan.close();
+
+        //
+        // /*
+
+        chan = dfsp.newByteChannel(DynPath.newPath(fs, "/foo/bar"),
+                ImmutableSet.of(StandardOpenOption.WRITE, StandardOpenOption.APPEND));
+
+        buf.put("HIJKLMN".getBytes());
+        buf.flip();
+
+        System.out.println(chan.write(buf));
+        buf.flip();
+
+        chan.close();
+
+        // */
 
         System.out.println("##");
         System.out.println(store.getRootDirectory().getTreeDump().build());
@@ -65,7 +86,8 @@ public class Main {
         System.out.println("##");
         System.out.println(store.getMemory().dumpBlock(0).dump().build());
         System.out.println("##");
-
+        System.out.println(store.getMemory().dumpBlock(1).dump().build());
+        System.out.println("##");
     }
 
 }

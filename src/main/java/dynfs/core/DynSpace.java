@@ -9,7 +9,6 @@ import java.nio.file.attribute.FileStoreAttributeView;
 import java.util.Set;
 
 import dynfs.core.path.DynRoute;
-import dynfs.core.store.DynSpaceIO;
 
 public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore implements Closeable {
 
@@ -152,11 +151,6 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
     protected abstract void closeImpl() throws IOException;
 
     //
-    // Implementation Stub: I/O Interface (Abstract)
-
-    protected abstract DynSpaceIO<Space> getIOInterface();
-
-    //
     // Implementation Stub: Root Directory
 
     public abstract <DirNode extends DynDirectory<Space, DirNode>> DirNode getRootDirectory();
@@ -164,11 +158,11 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
     //
     // Interface: Route Resolution
 
-    public final ResolutionResult<Space> resolve(DynRoute route) throws IOException {
+    final ResolutionResult<Space> resolve(DynRoute route) throws IOException {
         return getRootDirectory().resolve(route);
     }
 
-    public final ResolutionResult<Space> resolve(DynRoute route, boolean followLinks) throws IOException {
+    final ResolutionResult<Space> resolve(DynRoute route, boolean followLinks) throws IOException {
         return getRootDirectory().resolve(route, followLinks);
     }
 

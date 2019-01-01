@@ -443,7 +443,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
             throws IOException {
         LinkOptions linkOptions = LinkOptions.parse(options);
 
-        ResolutionResult<Space> resolution = fs.getStore().resolve(this, !linkOptions.nofollowLinks);
+        ResolutionResult<Space> resolution = fs.resolve(this, !linkOptions.nofollowLinks);
         if (resolution.isSuccess()) {
             return resolution.node();
         } else {

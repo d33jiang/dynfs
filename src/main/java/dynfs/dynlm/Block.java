@@ -86,7 +86,7 @@ public class Block extends BlockLike implements Dumpable {
     // Debug: Dump
 
     private static String byteToHexString(byte i) {
-        return String.format("%02d", i);
+        return String.format("%02x", i);
     }
 
     @Override
