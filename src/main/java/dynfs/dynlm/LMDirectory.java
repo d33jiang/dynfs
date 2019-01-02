@@ -77,7 +77,7 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
         }
 
         private void dump(StringBuilder sb, int newDepth, DynNode<LMSpace, ?> newRoot) {
-            sb.append(newRoot.getPathString());
+            sb.append(newRoot.getRouteString());
             sb.append('\n');
             if (newRoot instanceof LMDirectory) {
                 LMDirectory dir = (LMDirectory) newRoot;
@@ -105,21 +105,21 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
     // Interface: I/O
 
     @Override
-    public DynFile<LMSpace, ?> createFile(String name, FileAttribute<?>... attrs) throws IOException {
+    public DynFile<LMSpace, ?> createFileImpl(String name, FileAttribute<?>... attrs) throws IOException {
         LMFile file = new LMFile(getStore(), this, name);
         children.put(name, file);
         return file;
     }
 
     @Override
-    public DynDirectory<LMSpace, ?> createDirectory(String name, FileAttribute<?>... attrs) throws IOException {
+    public DynDirectory<LMSpace, ?> createDirectoryImpl(String name, FileAttribute<?>... attrs) throws IOException {
         LMDirectory file = new LMDirectory(getStore(), this, name);
         children.put(name, file);
         return file;
     }
 
     @Override
-    public void copy(DynNode<LMSpace, ?> src, String dstName, boolean deleteSrc) throws IOException {
+    public void copyImpl(DynNode<LMSpace, ?> src, String dstName, boolean deleteSrc) throws IOException {
         // TODO: Auto-generated method stub
         throw new NotImplementedException("Method stub");
     }
@@ -127,7 +127,7 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
     @Override
     protected void deleteChildImpl(String name, DynNode<LMSpace, ?> node) throws IOException {
         if (!children.remove(name, node))
-            throw new FileNotFoundException(node.getPathString());
+            throw new FileNotFoundException(node.getRouteString());
     }
 
     @Override
@@ -136,6 +136,12 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
         for (DynNode<LMSpace, ?> n : this) {
             n.delete();
         }
+    }
+
+    @Override
+    protected void setAttributeImpl(String attribute, Object value) throws IOException {
+        // TODO: Auto-generated method stub
+        throw new NotImplementedException("Method stub");
     }
 
 }

@@ -2,6 +2,8 @@ package dynfs.dynlm;
 
 import java.io.IOException;
 
+import org.apache.commons.lang3.NotImplementedException;
+
 import dynfs.core.DynFile;
 import dynfs.core.DynNode;
 import dynfs.core.io.DynFileIO;
@@ -32,7 +34,13 @@ public class LMFile extends DynFile<LMSpace, LMFile> {
 
     @Override
     public void setSize(long size) throws IOException {
-        this.data.setSize(LMSpace.getIntValue(size));
+        int minCapacity = LMSpace.getIntValue(size);
+        if (size > this.size) {
+            this.data.ensureCapacity(minCapacity);
+        } else {
+            this.data.trimCapacity(minCapacity);
+        }
+
         this.size = size;
     }
 
@@ -90,6 +98,12 @@ public class LMFile extends DynFile<LMSpace, LMFile> {
     // TODO: DEBUG
     @Override
     public String toString() {
-        return getPathString();
+        return getRouteString() + " -> " + size;
+    }
+
+    @Override
+    protected void setAttributeImpl(String attribute, Object value) throws IOException {
+        // TODO: Auto-generated method stub
+        throw new NotImplementedException("Method stub");
     }
 }

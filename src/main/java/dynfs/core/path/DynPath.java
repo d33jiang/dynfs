@@ -3,6 +3,7 @@ package dynfs.core.path;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.ClosedFileSystemException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
@@ -20,9 +21,8 @@ import dynfs.core.DynNode;
 public final class DynPath implements Path {
 
     //
-    // Field: File System
+    // Configuration: DynFileSystem
 
-    // NOTE: fs is nullable
     private final DynFileSystem<?> fs;
 
     @Override
@@ -30,8 +30,22 @@ public final class DynPath implements Path {
         return fs;
     }
 
+    private void throwIfNullFileSystem() {
+        if (fs == null)
+            throw new ClosedFileSystemException();
+    }
+
     //
-    // Field: Route
+    // Configuration: Domain
+
+    private final String domain;
+
+    public String domain() {
+        return domain;
+    }
+
+    //
+    // Configuration: Route
 
     private final DynRoute route;
 
@@ -40,43 +54,52 @@ public final class DynPath implements Path {
     }
 
     //
-    // Construction
+    // Construction: Factory
 
-    private DynPath(DynFileSystem<?> fs, DynRoute route) {
+    private DynPath(DynFileSystem<?> fs, String domain, DynRoute route) {
         this.fs = fs;
+        this.domain = domain;
         this.route = route;
     }
 
+    // TODO: package-private!
     public static DynPath newPathFromUri(DynFileSystem<?> fs, URI uri) {
-        // NOTE: null-check?
-        return new DynPath(fs, DynRoute.fromUri(uri));
+        return new DynPath(fs, uri.getHost(), DynRoute.fromUri(uri));
     }
 
     public static DynPath newPath(DynFileSystem<?> fs, String first, String... more) {
-        // NOTE: null-check?
-        return new DynPath(fs, DynRoute.fromPathNames(first, more));
+        if (first == null)
+            throw new NullPointerException("first is null");
+        if (more == null)
+            throw new NullPointerException("more is null");
+
+        return new DynPath(fs, fs.domain(), DynRoute.fromPathNames(first, more));
     }
 
     //
-    // Implementation: Path Matcher (Unsupported)
+    // Core Support: Comparable<Path>
 
-    public static PathMatcher getPathMatcher(String syntaxAndPattern) {
-        if (syntaxAndPattern == null)
-            throw new NullPointerException("syntaxAndPattern is null");
+    @Override
+    public int compareTo(Path other) {
+        if (other == null)
+            throw new NullPointerException("other is null");
+        if (!(other instanceof DynPath))
+            throw new ClassCastException("other is not a DynPath");
 
-        // TODO: Future feature?
-        throw new UnsupportedOperationException("PathMatchers are unavailable for DynFileSystemPaths");
+        DynPath p = (DynPath) other;
+        return route.compareTo(p.route);
     }
 
     //
-    // Helper: Derived Path
+    // Support: Path Derivation
 
     private DynPath derivePath(DynRoute route) {
-        return route == null ? null : new DynPath(fs, route);
+        return route == null ? null : new DynPath(fs, domain, route);
     }
 
     //
-    // Interface Delegation: DynRoute
+    // Interface: Path Queries
+    // Delegation to DynRoute
 
     @Override
     public boolean isAbsolute() {
@@ -100,12 +123,12 @@ public final class DynPath implements Path {
 
     @Override
     public DynPath getName(int index) {
-        return derivePath(route.getName(index));
+        return derivePath(route.getNameRoute(index));
     }
 
     @Override
     public DynPath getFileName() {
-        return derivePath(route.getFileName());
+        return derivePath(route.getFileNameRoute());
     }
 
     @Override
@@ -207,7 +230,7 @@ public final class DynPath implements Path {
     }
 
     private DynPath relativize(String other) {
-        return derivePath(route.relativize(DynRoute.fromPathNames(other)));
+        return derivePath(route.relativize(other));
     }
 
     @Override
@@ -224,7 +247,7 @@ public final class DynPath implements Path {
 
     @Override
     public URI toUri() {
-        return route.toUri(fs.domain());
+        return route.toUri(domain);
     }
 
     @Override
@@ -234,6 +257,7 @@ public final class DynPath implements Path {
 
     @Override
     public DynPath toRealPath(LinkOption... options) throws IOException {
+        throwIfNullFileSystem();
         return derivePath(route.toRealRoute(fs, options));
     }
 
@@ -243,20 +267,8 @@ public final class DynPath implements Path {
     }
 
     public DynNode<?, ?> toDynNode() throws IOException {
+        throwIfNullFileSystem();
         return route.lookup(fs);
-    }
-
-    //
-    // Interface: WatchService
-
-    @Override
-    public WatchKey register(WatchService watcher, Kind<?>... events) throws IOException {
-        return fs.register(watcher, route, events);
-    }
-
-    @Override
-    public WatchKey register(WatchService watcher, Kind<?>[] events, Modifier... modifiers) throws IOException {
-        return fs.register(watcher, route, events, modifiers);
     }
 
     //
@@ -280,17 +292,30 @@ public final class DynPath implements Path {
     }
 
     //
-    // Interface: Comparable<Path>
+    // Interface: Watchable
+    // Delegation to DynFileSystem
 
     @Override
-    public int compareTo(Path other) {
-        if (other == null)
-            throw new NullPointerException("other is null");
-        if (!(other instanceof DynPath))
-            throw new IllegalArgumentException("other corresponds to another FileSystemProvider");
+    public WatchKey register(WatchService watcher, Kind<?>... events) throws IOException {
+        throwIfNullFileSystem();
+        return fs.register(watcher, route, events);
+    }
 
-        DynPath p = (DynPath) other;
-        return route.compareTo(p.route);
+    @Override
+    public WatchKey register(WatchService watcher, Kind<?>[] events, Modifier... modifiers) throws IOException {
+        throwIfNullFileSystem();
+        return fs.register(watcher, route, events, modifiers);
+    }
+
+    //
+    // Implementation: Path Matcher (Future)
+
+    public static PathMatcher getPathMatcher(String syntaxAndPattern) {
+        if (syntaxAndPattern == null)
+            throw new NullPointerException("syntaxAndPattern is null");
+
+        // TODO: Future feature?
+        throw new UnsupportedOperationException("PathMatchers are unavailable for DynFileSystemPaths");
     }
 
 }

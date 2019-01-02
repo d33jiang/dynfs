@@ -9,37 +9,42 @@ import java.util.Iterator;
 import dynfs.core.DynDirectory;
 import dynfs.core.DynSpace;
 
-public class DynDirectoryStream<Space extends DynSpace<Space>>
+public final class DynDirectoryStream<Space extends DynSpace<Space>>
         implements DirectoryStream<Path> {
 
     // TODO: Organize class implementation
     // TODO: Inner/anonymous class state
     // TODO: Happens-after relationships w/ close()
 
-    private boolean isClosed;
+    //
+    // Configuration: DynDirectory
 
     private final DynDirectory<Space, ?> dir;
-    private Iterator<Path> iter;
+
+    //
+    // Configuration: Filter
 
     private final Filter<? super Path> filter;
 
-    public DynDirectoryStream(DynDirectory<Space, ?> dir) {
-        this(dir, p -> true);
-    }
+    //
+    // State: Status
 
-    public DynDirectoryStream(DynDirectory<Space, ?> dir, Filter<? super Path> filter) {
-        this.isClosed = false;
+    private boolean isClosed;
 
-        this.dir = dir;
-        this.iter = null;
-
-        this.filter = filter;
+    @Override
+    public void close() throws IOException {
+        isClosed = true;
     }
 
     private void throwIfClosed() {
         if (isClosed)
             throw new ClosedDirectoryStreamException();
     }
+
+    //
+    // Lazy: Iterator
+
+    private Iterator<Path> iter;
 
     private void initializeIterator() {
         // TODO: Implementation
@@ -54,9 +59,22 @@ public class DynDirectoryStream<Space extends DynSpace<Space>>
         return iter;
     }
 
-    @Override
-    public void close() throws IOException {
-        isClosed = true;
+    //
+    // Construction
+
+    // TODO: should be package-private
+    public DynDirectoryStream(DynDirectory<Space, ?> dir) {
+        this(dir, p -> true);
+    }
+
+    // TODO: should be package-private
+    public DynDirectoryStream(DynDirectory<Space, ?> dir, Filter<? super Path> filter) {
+        this.dir = dir;
+        this.filter = filter;
+
+        this.isClosed = false;
+
+        this.iter = null;
     }
 
 }

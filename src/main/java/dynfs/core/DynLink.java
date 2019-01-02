@@ -1,12 +1,14 @@
 package dynfs.core;
 
+import java.io.IOException;
+
 import dynfs.core.path.DynRoute;
 
 public abstract class DynLink<Space extends DynSpace<Space>, Node extends DynLink<Space, Node>>
         extends DynNode<Space, Node> {
 
     //
-    // Implementation: Attributes
+    // Interface Implementation: DynNode Type Attributes
 
     @Override
     public final boolean isSymbolicLink() {
@@ -22,8 +24,13 @@ public abstract class DynLink<Space extends DynSpace<Space>, Node extends DynLin
     }
 
     //
-    // Implementation Stub: Link Target (Abstract)
+    // Implementation Stub: Link Target
 
-    public abstract DynRoute follow();
+    public final DynRoute follow() throws IOException {
+        // TODO: Check access control
+        return followImpl();
+    }
+
+    protected abstract DynRoute followImpl() throws IOException;
 
 }

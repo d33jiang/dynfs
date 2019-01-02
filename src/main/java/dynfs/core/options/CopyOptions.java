@@ -4,7 +4,10 @@ import java.nio.file.CopyOption;
 import java.nio.file.LinkOption;
 import java.nio.file.StandardCopyOption;
 
-public class CopyOptions {
+public final class CopyOptions {
+
+    //
+    // Configuration: Internal Data
 
     public boolean atomicMove = false;
     public boolean copyAttributes = false;
@@ -12,7 +15,10 @@ public class CopyOptions {
 
     public boolean nofollowLinks = false;
 
-    CopyOptions() {}
+    //
+    // Construction: Factory
+
+    private CopyOptions() {}
 
     public static CopyOptions parse(CopyOption[] options) {
         CopyOptions result = new CopyOptions();
@@ -37,9 +43,7 @@ public class CopyOptions {
     }
 
     public LinkOptions getLinkOptions() {
-        LinkOptions linkOptions = new LinkOptions();
-        linkOptions.nofollowLinks = this.nofollowLinks;
-        return linkOptions;
+        return LinkOptions.newInstance(nofollowLinks);
     }
 
 }

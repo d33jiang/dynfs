@@ -10,49 +10,7 @@ import dynfs.core.path.DynRoute;
 public final class ResolutionResult<Space extends DynSpace<Space>> {
 
     //
-    // Enum: Result Flag
-
-    public static enum Result {
-        INCONSISTENT_STATE_ERROR,
-        SUCCESS_END_INDEX_REACHED,
-        FAIL_NON_DIRECTORY_ENCOUNTERED,
-        FAIL_NAME_NOT_FOUND,
-        FAIL_IO_EXCEPTION_DURING_RESOLUTION,
-        FAIL_LINK_LOOP,
-        FAIL_SUBRESOLUTION_FAILURE;
-    }
-
-    //
-    // Implementation: Exception Generation
-
-    private Exception generateException() {
-        switch (status) {
-            case INCONSISTENT_STATE_ERROR:
-                return new IllegalStateException(cause.toString());
-            case SUCCESS_END_INDEX_REACHED:
-                return null;
-            case FAIL_NON_DIRECTORY_ENCOUNTERED:
-                return new NotDirectoryException(route.subroute(0, lastIndex).toString());
-            case FAIL_NAME_NOT_FOUND:
-                return new NoSuchFileException(route.subroute(0, lastIndex).toString());
-            case FAIL_IO_EXCEPTION_DURING_RESOLUTION:
-                return new IOException(
-                        "I/O Exception encountered when resolving " + route.subroute(0, lastIndex + 1),
-                        (IOException) cause);
-            case FAIL_LINK_LOOP:
-                return new FileSystemLoopException(cause.toString());
-            case FAIL_SUBRESOLUTION_FAILURE:
-                @SuppressWarnings("unchecked")
-                ResolutionResult<Space> subresolution = (ResolutionResult<Space>) cause;
-                return new IOException("Subresolution failure while resolving " + subresolution.route,
-                        subresolution.generateException());
-            default:
-                return new IllegalStateException("ResolutionResult status is invalid");
-        }
-    }
-
-    //
-    // Field: Internal Data
+    // Configuration: DynRoute Resolution Result
 
     private final DynDirectory<Space, ?> lastParent;
     private final DynNode<Space, ?> node;
@@ -64,6 +22,9 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
     private final Result status;
 
     private final Object cause;
+
+    //
+    // Configuration: Cached Exception
 
     private final Exception ex;
 
@@ -88,7 +49,49 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
 
         this.cause = cause;
 
-        this.ex = generateException();
+        this.ex = constructException();
+    }
+
+    //
+    // Enumerable: Result Flag
+
+    public static enum Result {
+        INCONSISTENT_STATE_ERROR,
+        SUCCESS_END_INDEX_REACHED,
+        FAIL_NON_DIRECTORY_ENCOUNTERED,
+        FAIL_NAME_NOT_FOUND,
+        FAIL_IO_EXCEPTION_DURING_RESOLUTION,
+        FAIL_LINK_LOOP,
+        FAIL_SUBRESOLUTION_FAILURE;
+    }
+
+    //
+    // Support: Exception Construction
+
+    private Exception constructException() {
+        switch (status) {
+            case INCONSISTENT_STATE_ERROR:
+                return new IllegalStateException(cause.toString());
+            case SUCCESS_END_INDEX_REACHED:
+                return null;
+            case FAIL_NON_DIRECTORY_ENCOUNTERED:
+                return new NotDirectoryException(route.subroute(0, lastIndex).toString());
+            case FAIL_NAME_NOT_FOUND:
+                return new NoSuchFileException(route.subroute(0, lastIndex).toString());
+            case FAIL_IO_EXCEPTION_DURING_RESOLUTION:
+                return new IOException(
+                        "I/O Exception encountered when resolving " + route.subroute(0, lastIndex + 1),
+                        (IOException) cause);
+            case FAIL_LINK_LOOP:
+                return new FileSystemLoopException(cause.toString());
+            case FAIL_SUBRESOLUTION_FAILURE:
+                @SuppressWarnings("unchecked")
+                ResolutionResult<Space> subresolution = (ResolutionResult<Space>) cause;
+                return new IOException("Subresolution failure while resolving " + subresolution.route,
+                        subresolution.constructException());
+            default:
+                return new IllegalStateException("ResolutionResult status is invalid");
+        }
     }
 
     //
@@ -127,8 +130,11 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
     }
 
     //
-    // Implementation: Throw Exception
+    // Implementation: Exception Generation
 
+    // TODO: Wrap *pre-created* IOException in DynRouteResolutionFailureException
+    // (extends DynException?) extends IOException
+    // -> generates new stack trace
     public void throwException() throws IOException {
         if (ex instanceof IOException)
             throw (IOException) ex;
@@ -148,7 +154,7 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
     }
 
     //
-    // Implementation: Query, Existence
+    // Interface Implementation: Query, Existence
 
     public boolean exists() throws IOException {
         if (isSuccess())
@@ -161,7 +167,7 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
     }
 
     //
-    // Implementation: Query, Existence of Parent Directory
+    // Interface Implementation: Query, Existence of Parent Directory
 
     public boolean existsParentDirectory() throws IOException {
         if (isSuccess())
@@ -174,14 +180,14 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
     }
 
     //
-    // Implementation: Query, Existence Test
+    // Interface Implementation: Resolution Query, Existence
 
     public DynNode<Space, ?> testExistence() throws IOException {
         if (isSuccess()) {
-            // Exists at route
+            // DynNode resolved from DynRoute
             return node();
         } else {
-            // Resolution failure
+            // Resolution failure or DynNode does not exist
             throwException();
             return null;
         }
@@ -189,36 +195,14 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
 
     public DynNode<Space, ?> testExistenceForCreation() throws IOException {
         if (isSuccess()) {
-            // Exists at route
+            // DynNode resolved from DynRoute
             return node();
         } else if (existsParentDirectory()) {
-            // Parent directory exists; file does not exist
+            // Parent DynDirectory exists; DynNode does not exist
             return null;
         } else {
-            // Resolution failure
+            // Resolution failure or parent DynDirectory does not exist
             throwException();
-            return null;
-        }
-    }
-
-    //
-    // Deprecated
-
-    @Deprecated
-    static class ExceptionUtils {
-        private ExceptionUtils() {}
-
-        public IOException getIOException(ResolutionResult<?> resolution) {
-            if (resolution.ex instanceof IOException) {
-                return (IOException) resolution.ex;
-            }
-            return null;
-        }
-
-        public RuntimeException getRuntimeException(ResolutionResult<?> resolution) {
-            if (resolution.ex instanceof RuntimeException) {
-                return (RuntimeException) resolution.ex;
-            }
             return null;
         }
     }

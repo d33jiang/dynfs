@@ -12,8 +12,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import dynfs.debug.Dumpable;
+import dynfs.template.Allocator;
 
-public final class LMMemory implements Allocator<LMFile> {
+public final class LMMemory implements Allocator<LMFile, Block> {
 
     //
     // Interface Field: Allocated Space
@@ -48,9 +49,9 @@ public final class LMMemory implements Allocator<LMFile> {
     }
 
     @Override
-    public List<Block> allocateBlocks(LMFile f, int nblocks) throws IOException {
+    public Iterable<Block> allocate(LMFile f, int nblocks) throws IOException {
         if (nblocks > freeBlocks.size())
-            throw new FileSystemException(f.getPathString(), null, "Out of memory");
+            throw new FileSystemException(f.getRouteString(), null, "Out of memory");
 
         List<Block> allocated = new LinkedList<>();
         for (int i = 0; i < nblocks; i++) {
@@ -69,7 +70,7 @@ public final class LMMemory implements Allocator<LMFile> {
     }
 
     @Override
-    public void freeBlocks(LMFile f, Iterable<Block> blocks) {
+    public void free(LMFile f, Iterable<Block> blocks) {
         for (Block block : blocks) {
             if (reservedBlocks.get(block.getIndex()) != f)
                 throw new IllegalArgumentException("Attempt to free wrongly associated block");

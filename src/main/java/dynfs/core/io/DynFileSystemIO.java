@@ -2,7 +2,6 @@ package dynfs.core.io;
 
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.file.ClosedFileSystemException;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.DirectoryStream.Filter;
@@ -29,18 +28,16 @@ import dynfs.core.path.DynRoute;
 
 public final class DynFileSystemIO {
 
+    // TODO: Create/delete/access curDir / parentDir?
+    // TODO: Rename to DynFileSystemProviderIO?
+
+    //
+    // Construction: Disabled
+
     private DynFileSystemIO() {}
 
     //
-    // Helper: Status Check
-
-    private static void throwIfClosed(DynFileSystem<?> fs) {
-        if (fs.status().isClosed())
-            throw new ClosedFileSystemException();
-    }
-
-    //
-    // Implementation: DynFileSystemProvider I/O
+    // Interface Implementation: DynFileSystemProvider I/O
 
     public static SeekableByteChannel newByteChannel(DynFileSystem<?> fs, DynRoute route, OpenOptions openOptions,
             FileAttribute<?>... attrs)
@@ -63,7 +60,9 @@ public final class DynFileSystemIO {
         if (node != null)
             throw new FileAlreadyExistsException(dir.toString());
 
-        resolution.lastParent().createDirectory(dir.getFileNameAsString(), attrs);
+        // TODO: Check access control
+
+        resolution.lastParent().createDirectoryImpl(dir.getFileName(), attrs);
     }
 
     public static <Space extends DynSpace<Space>> void delete(DynFileSystem<Space> fs, DynRoute route)
@@ -100,6 +99,7 @@ public final class DynFileSystemIO {
         copyImpl(fs, src, dst, copyOptions, true);
     }
 
+    // TODO: Adhere to API specification of Files.copy (re: copy to link, etc.)
     // TODO: Redesign / restructure
     private static <Space extends DynSpace<Space>> void copyImpl(DynFileSystem<Space> fs, DynRoute src, DynRoute dst,
             CopyOptions copyOptions,
@@ -108,6 +108,8 @@ public final class DynFileSystemIO {
         DynNode<Space, ?> srcNode = srcResolution.testExistence();
         ResolutionResult<Space> dstResolution = fs.resolve(dst);
         DynNode<Space, ?> dstNode = dstResolution.testExistenceForCreation();
+
+        // TODO: Check access control
 
         if (copyOptions.atomicMove) {
             // TODO: FS structure locks ...
@@ -131,11 +133,12 @@ public final class DynFileSystemIO {
         }
 
         if (srcAttributes.isDirectory()) {
-            dstParentNode.createDirectory(dst.getFileNameAsString());
+            dstParentNode.createDirectoryImpl(dst.getFileName());
         } else {
-            dstParentNode.copy(srcNode, dst.getFileNameAsString(), deleteSrc);
+            dstParentNode.copyImpl(srcNode, dst.getFileName(), deleteSrc);
         }
 
+        // TODO: Should this be handled by implementation instead of framework?
         if (copyOptions.copyAttributes) {
             try {
                 BasicFileAttributeView dstAttributes = getFileAttributeView(fs, dst,
@@ -155,6 +158,7 @@ public final class DynFileSystemIO {
             }
         }
 
+        // TODO: Should lastAccessTime be modified? creationTime?
     }
 
     public static <Space extends DynSpace<Space>> boolean isSameFile(DynFileSystem<Space> fs, DynRoute route1,

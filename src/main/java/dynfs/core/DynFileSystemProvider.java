@@ -42,16 +42,40 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     // TODO: Design WeakReference cut to give control over memory management to impl
     // TODO: Atomic I/O
     // TODO: Builder / Prototype pattern for Options
+    // TODO: Cut down on type parameters where they aren't useful (i.e. within
+    // internal implementations)
+    // TODO: Standardize diamonds, implicit diamonds, explicit type arguments
+    // TODO: Verify static method invocations all occur through class name
+    // TODO: In all non-final classes, all non-private methods that should not be
+    // overridden should be made final
+    // TODO: Explore Nullable, NonNull, etc. annotations; very likely not retained
+    // during runtime; might be retained beyond compilation?
+    // TODO: Centralized (AccessControlClass).checkRead(), .checkCopy(),
+    // .checkWrite(), etc.
 
     //
-    // Construction
+    // Constant: URI Scheme
+
+    public static final String URI_SCHEME = "dynfs";
+
+    @Override
+    public String getScheme() {
+        return URI_SCHEME;
+    }
+
+    //
+    // State: Managed DynFileSystem Instances
+
+    private final Lock managedSystemsWriteLock = new ReentrantLock();
+    private final Map<String, DynFileSystem<?>> managedSystems = new ConcurrentHashMap<>();
+
+    //
+    // Construction: Unmanaged Singleton
 
     public DynFileSystemProvider() {}
 
     //
-    // Helper: URI Resolution
-
-    public static final String URI_SCHEME = "dynfs";
+    // Static Support: URI Validation
 
     private static void validateUri(URI uri) {
         if (uri == null)
@@ -67,13 +91,45 @@ public final class DynFileSystemProvider extends FileSystemProvider {
             throw new IllegalArgumentException("A DynFS URI cannot contain a port number");
     }
 
-    @Override
-    public String getScheme() {
-        return URI_SCHEME;
+    //
+    // Static Support: File System Resolution
+
+    private static DynFileSystem<?> getFileSystemFromPath(Path p) {
+        if (p == null)
+            throw new NullPointerException("Path is null");
+
+        FileSystem fs = p.getFileSystem();
+        validateFileSystem(fs);
+        return (DynFileSystem<?>) fs;
     }
 
+    private static void validateFileSystem(FileSystem fs) {
+        if (fs == null)
+            throw new NullPointerException("File system associated with Path is null");
+
+        if (!(fs instanceof DynFileSystem))
+            throw new ProviderMismatchException("File system associated with Path is not a DynFileSystem");
+
+        if (!(fs.provider() instanceof DynFileSystemProvider))
+            // NOTE: Should never happen given that the previous check passes
+            throw new IllegalStateException("DynFileSystem provider is not DynFileSystemProvider");
+    }
+
+    //
+    // Static Support: DynRoute Resolution
+
+    // NOTE: Assumes (path instanceof DynPath)
+    private static DynRoute getDynRoute(Path path) {
+        DynPath dp = (DynPath) path;
+        dp = dp.toAbsolutePath();
+        return dp.route();
+    }
+
+    //
+    // Interface: DynPath Creation
+
     @Override
-    public Path getPath(URI uri) {
+    public DynPath getPath(URI uri) {
         validateUri(uri);
 
         String domain = uri.getHost();
@@ -85,13 +141,7 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     }
 
     //
-    // State: File System Management
-
-    private final Lock managedSystemsWriteLock = new ReentrantLock();
-    private final Map<String, DynFileSystem<?>> managedSystems = new ConcurrentHashMap<>();
-
-    //
-    // Implementation: File System Creation
+    // Interface: DynFileSystem Creation
 
     // by URI, with factory from provided environment
     @Override
@@ -140,7 +190,7 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     }
 
     //
-    // Implementation: File System Access
+    // Interface: DynFileSystem Access
 
     @Override
     public DynFileSystem<?> getFileSystem(URI uri) {
@@ -169,7 +219,7 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     }
 
     //
-    // Implementation: File System Loading
+    // Interface: DynFileSystem Loading
 
     // from provided loader
     public <Space extends DynSpace<Space>> DynFileSystem<Space> loadFileSystem(String domain,
@@ -208,9 +258,10 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     }
 
     //
-    // Implementation: File System Decoupling
+    // Interface Implementation: File System Decoupling (Unused)
 
     @SuppressWarnings("unused")
+    @Deprecated
     private boolean __decoupleFileSystem(String domain, DynFileSystem<?> fs) {
         managedSystemsWriteLock.lock();
         try {
@@ -221,40 +272,8 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     }
 
     //
-    // Helper: File System Resolution
-
-    private static void validateFileSystem(FileSystem fs) {
-        if (fs == null)
-            throw new NullPointerException("File system associated with Path is null");
-
-        if (!(fs instanceof DynFileSystem))
-            throw new ProviderMismatchException("File system associated with Path is not a DynFileSystem");
-
-        if (!(fs.provider() instanceof DynFileSystemProvider))
-            // NOTE: Should never happen given that the previous check passes
-            throw new IllegalStateException("DynFileSystem provider is not DynFileSystemProvider");
-    }
-
-    private static DynFileSystem<?> getFileSystemFromPath(Path p) {
-        if (p == null)
-            throw new NullPointerException("Path is null");
-
-        FileSystem fs = p.getFileSystem();
-        validateFileSystem(fs);
-        return (DynFileSystem<?>) fs;
-    }
-
-    //
-    // Helper: Path Resolution
-
-    private static DynRoute getDynRoute(Path path) {
-        DynPath dp = (DynPath) path;
-        dp = dp.toAbsolutePath();
-        return dp.route();
-    }
-
-    //
-    // Interface Delegation: File System Operations
+    // Interface: File System Operations
+    // Delegation to DynFileSystemProviderIO
 
     @Override
     public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs)

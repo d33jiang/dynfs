@@ -4,7 +4,10 @@ import java.nio.file.LinkOption;
 import java.nio.file.OpenOption;
 import java.nio.file.StandardOpenOption;
 
-public class OpenOptions {
+public final class OpenOptions {
+
+    //
+    // Configuration: Internal Data
 
     public boolean read = false;
     public boolean write = false;
@@ -24,7 +27,10 @@ public class OpenOptions {
 
     public boolean nofollowLinks = false;
 
-    OpenOptions() {}
+    //
+    // Construction: Factory
+
+    private OpenOptions() {}
 
     public static OpenOptions parse(Iterable<? extends OpenOption> options) {
         OpenOptions result = new OpenOptions();

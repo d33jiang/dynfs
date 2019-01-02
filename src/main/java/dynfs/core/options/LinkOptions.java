@@ -2,11 +2,23 @@ package dynfs.core.options;
 
 import java.nio.file.LinkOption;
 
-public class LinkOptions {
+public final class LinkOptions {
+
+    //
+    // Configuration: Internal Data
 
     public boolean nofollowLinks = false;
 
-    LinkOptions() {}
+    //
+    // Construction: Factory
+
+    private LinkOptions() {}
+
+    public static LinkOptions newInstance(boolean nofollowLinks) {
+        LinkOptions instance = new LinkOptions();
+        instance.nofollowLinks = nofollowLinks;
+        return instance;
+    }
 
     public static LinkOptions parse(LinkOption[] options) {
         LinkOptions result = new LinkOptions();

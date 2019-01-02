@@ -5,8 +5,11 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.spi.FileSystemProvider;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,7 +56,7 @@ public class Main {
         //
 
         SeekableByteChannel chan = dfsp.newByteChannel(DynPath.newPath(fs, "/foo/bar"),
-                ImmutableSet.of(StandardOpenOption.WRITE, StandardOpenOption.CREATE));
+                ImmutableSet.of(StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW));
 
         buf.put("ABCDEFG".getBytes());
         buf.flip();
@@ -69,7 +72,7 @@ public class Main {
         chan = dfsp.newByteChannel(DynPath.newPath(fs, "/foo/bar"),
                 ImmutableSet.of(StandardOpenOption.WRITE, StandardOpenOption.APPEND));
 
-        buf.put("HIJKLMN".getBytes());
+        buf.put("HIJK".getBytes());
         buf.flip();
 
         System.out.println(chan.write(buf));
@@ -88,6 +91,12 @@ public class Main {
         System.out.println("##");
         System.out.println(store.getMemory().dumpBlock(1).dump().build());
         System.out.println("##");
+
+        //
+        //
+
+        ArrayList<String> a;
+
     }
 
 }

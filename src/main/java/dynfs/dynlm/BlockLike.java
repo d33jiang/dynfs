@@ -2,54 +2,57 @@ package dynfs.dynlm;
 
 import java.io.IOException;
 
-abstract class BlockLike {
+import dynfs.template.BufferLike;
 
-    //
-    // Implementation: Validation
-
-    protected static void checkLength(String lblLen, int len) {
-        if (len < 0)
-            throw new IllegalArgumentException(lblLen + " must be nonnegative");
-    }
-
-    protected static void checkInterval(String lblOff, int off, String lblLen, int len, String lblArr, int size) {
-        if (off < 0 || off + len > size)
-            throw new IllegalArgumentException(
-                    lblOff + " and " + lblLen + " do not denote an interval within " + lblArr);
-    }
-
-    protected static void checkIndex(String lblOff, int off, String lblArr, int size) {
-        if (off < 0 || off >= size)
-            throw new IllegalArgumentException(lblOff + " does not denote an element within " + lblArr);
-    }
-
-    protected final void checkBlockInterval(int off, int len) {
-        checkLength("len", len);
-        checkInterval("off", off, "len", len, "the block", size());
-    }
-
-    protected final void checkBlockIndex(int off) {
-        checkIndex("off", off, "the block", size());
-    }
+abstract class BlockLike extends BufferLike {
 
     //
     // Field: Internal State
 
-    private int size;
+    private int capacity;
     private LMFile owner;
 
     //
-    // Interface: Size
+    // Interface: Capacity
 
-    public final int size() {
-        return size;
+    public final int capacity() {
+        return capacity;
     }
 
-    protected int setSize(int newSize) throws IOException {
-        int temp = this.size;
-        this.size = newSize;
-        return temp;
+    @Override
+    public final long size() {
+        return capacity;
     }
+
+    public final void ensureCapacity(int minCapacity) throws IOException {
+        if (minCapacity <= capacity) {
+            return;
+        }
+
+        int newCapacity = ensureCapacityImpl(minCapacity);
+        if (newCapacity < minCapacity)
+            throw new AssertionError("The new capacity must be at least minCapacity if ensureCapacityImpl returns");
+
+        capacity = newCapacity;
+    }
+
+    protected abstract int ensureCapacityImpl(int minCapacity) throws IOException;
+
+    public final void trimCapacity(int minCapacity) throws IOException {
+        if (minCapacity > capacity)
+            throw new IllegalArgumentException("minCapacity is greater than current capacity");
+        if (minCapacity == capacity)
+            return;
+
+        int newCapacity = trimCapacityImpl(minCapacity);
+        if (newCapacity < minCapacity)
+            throw new AssertionError("The new capacity must be at least minCapacity");
+        if (newCapacity < 0)
+            throw new AssertionError("The new capacity must be nonnegative");
+
+    }
+
+    protected abstract int trimCapacityImpl(int minCapacity) throws IOException;
 
     //
     // Interface: Owner
@@ -67,58 +70,24 @@ abstract class BlockLike {
     //
     // Construction
 
-    protected BlockLike(int initialSize) throws IOException {
-        this(initialSize, null);
+    protected BlockLike(int initialCapacity) throws IOException {
+        this(initialCapacity, null);
     }
 
-    protected BlockLike(int initialSize, LMFile initialOwner) throws IOException {
-        this.size = initialSize;
+    protected BlockLike(int initialCapacity, LMFile initialOwner) throws IOException {
+        checkLength("initialCapacity", initialCapacity);
+        this.capacity = initialCapacity;
         this.owner = initialOwner;
     }
 
     //
-    // Interface: I/O
-
-    public final void read(int off, byte[] dst, int dstOff, int len) {
-        checkBlockInterval(off, len);
-        checkInterval("dstOff", dstOff, "len", len, "dst", dst.length);
-
-        uncheckedRead(off, dst, dstOff, len);
-    }
-
-    public final byte[] read(int off, int len) {
-        checkBlockInterval(off, len);
-
-        byte[] buf = new byte[len];
-        uncheckedRead(off, buf, 0, len);
-
-        return buf;
-    }
-
-    public final void write(int off, byte[] src, int srcOff, int len) {
-        checkBlockInterval(off, len);
-        checkInterval("srcOff", srcOff, "len", len, "src", src.length);
-
-        uncheckedWrite(off, src, srcOff, len);
-    }
-
-    public final byte readByte(int off) {
-        checkBlockIndex(off);
-        return uncheckedReadByte(off);
-    }
-
-    public final void writeByte(int off, byte val) {
-        checkBlockIndex(off);
-        uncheckedWriteByte(off, val);
-    }
-
-    // Implementation: I/O
+    // Implementation Stub Redefinition
 
     protected abstract void uncheckedRead(int off, byte[] dst, int dstOff, int len);
 
     protected abstract void uncheckedWrite(int off, byte[] src, int srcOff, int len);
 
-    protected final void uncheckedTransfer(int off, byte[] other, int otherOff, int len, boolean read) {
+    final void uncheckedTransfer(int off, byte[] other, int otherOff, int len, boolean read) {
         if (read) {
             uncheckedRead(off, other, otherOff, len);
         } else {
@@ -129,4 +98,25 @@ abstract class BlockLike {
     protected abstract byte uncheckedReadByte(int off);
 
     protected abstract void uncheckedWriteByte(int off, byte val);
+
+    @Override
+    protected final void uncheckedRead(long off, byte[] dst, int dstOff, int len) {
+        uncheckedRead(LMSpace.getIntValue(off), dst, dstOff, len);
+    }
+
+    @Override
+    protected final void uncheckedWrite(long off, byte[] src, int srcOff, int len) {
+        uncheckedWrite(LMSpace.getIntValue(off), src, srcOff, len);
+    }
+
+    @Override
+    protected final byte uncheckedReadByte(long off) {
+        return uncheckedReadByte(LMSpace.getIntValue(off));
+    }
+
+    @Override
+    protected final void uncheckedWriteByte(long off, byte val) {
+        uncheckedWriteByte(LMSpace.getIntValue(off), val);
+    }
+
 }

@@ -17,23 +17,7 @@ import dynfs.core.path.DynRoute;
 public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNode<Space, Node>> {
 
     //
-    // Helper: Name Validation
-
-    protected static void validateName(String name) {
-        validateName(name, "Node name");
-    }
-
-    protected static void validateName(String name, String lblName) {
-        if (name == null)
-            throw new NullPointerException(lblName + " cannot be null");
-        if (name.isEmpty())
-            throw new IllegalArgumentException(lblName + " must be non-empty");
-        if (name.contains("/"))
-            throw new IllegalArgumentException(lblName + " cannot contain '/'");
-    }
-
-    //
-    // Field: Store
+    // Configuration: Store
 
     private final Space store;
 
@@ -42,7 +26,7 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     }
 
     //
-    // Field: Parent
+    // Configuration: Parent
 
     private final DynDirectory<Space, ?> parent;
 
@@ -51,7 +35,7 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     }
 
     //
-    // Field: Name
+    // Configuration: Name
 
     private final String name;
 
@@ -60,56 +44,53 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     }
 
     //
-    // Field: Attributes
+    // Construction
 
-    private final DynAttributes<Space, Node> attributes;
+    <DirNode extends DynDirectory<Space, DirNode>> DynNode(Space store, DirNode parent, String name) {
+        this.store = store;
+        this.parent = parent;
+        this.name = name;
 
-    public final DynAttributes<Space, Node> attributes() {
-        return attributes;
+        // TODO: See DynAttributes sections
+        this.attributes = new DynAttributes<Space>(this);
     }
 
     //
-    // Interface: Attributes
+    // Core Support: Equality Check
 
-    /**
-     * @see FileSystemProvider#readAttributes(Path, Class, LinkOption...)
-     */
-    // I/O: File Attributes, Read by Subclass of BasicFileAttributes
-    @SuppressWarnings("unchecked")
-    public final <A extends BasicFileAttributes> A readAttributes(Class<A> type)
-            throws IOException {
-        if (!type.isAssignableFrom(DynAttributes.class))
-            throw new UnsupportedOperationException("Attributes of the given type are not supported");
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof DynNode))
+            return false;
+        if (store != ((DynNode<?, ?>) other).store)
+            return false;
 
-        return (A) attributes();
-    }
+        // TODO: Is this SuppressWarnings annotation removable?
+        @SuppressWarnings("unchecked")
+        DynNode<Space, ?> otherNode = (DynNode<Space, ?>) other;
 
-    /**
-     * @see FileSystemProvider#readAttributes(Path, String, LinkOption...)
-     */
-    // I/O: File Attributes, Read by String [Names of Attribute Sets]
-    public Map<String, Object> readAttributes(String attributes)
-            throws IOException {
-        return attributes().readAttributes(attributes);
-    }
-
-    /**
-     * @see FileSystemProvider#setAttribute(Path, String, Object, LinkOption...)
-     */
-    // I/O: File Attributes, Set
-    public void setAttribute(String attribute, Object value) throws IOException {
-        attributes().setAttribute(attribute, value);
+        return isSameFile(otherNode);
     }
 
     //
-    // Implementation: Access Control
+    // Inheritable Static Support: Name Validation
 
-    public final void checkAccess(AccessModes modes) {
-        throw new NotImplementedException("Access control is not yet implemented");
+    protected static void validateName(String name) {
+        validateName("The node name", name);
+    }
+
+    protected static void validateName(String lblName, String name) {
+        if (name == null)
+            throw new NullPointerException(lblName + " cannot be null");
+        // TODO: Should empty-string-named files be permissible?
+        if (name.isEmpty())
+            throw new IllegalArgumentException(lblName + " must be non-empty");
+        if (name.contains("/"))
+            throw new IllegalArgumentException(lblName + " cannot contain '/'");
     }
 
     //
-    // Implementation: Absolute Route
+    // Interface Implementation: Canonical Route
 
     private final void getRoute(Deque<String> pathNames) {
         if (parent != null) {
@@ -128,25 +109,90 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     }
 
     //
-    // Implementation: Path String
+    // Interface: Route String
 
-    public final String getPathString() {
+    public final String getRouteString() {
         return getRoute().toString();
     }
 
     //
-    // Construction
+    // Implementation Default: FileKey
 
-    <DirNode extends DynDirectory<Space, DirNode>> DynNode(Space store, DirNode parent, String name) {
-        this.store = store;
-        this.parent = parent;
-        this.name = name;
-
-        this.attributes = new DynAttributes<Space, Node>(this);
+    public Object fileKey() {
+        return null;
     }
 
     //
-    // Implementation: Attributes (Abstract)
+    // Interface Implementation Stub: DynNode Size Attribute
+
+    public abstract long size();
+
+    //
+    // Interface: DynAttributes, Read by Attribute Sets
+
+    /**
+     * @see FileSystemProvider#readAttributes(Path, String, LinkOption...)
+     */
+    public final Map<String, Object> readAttributes(String attributes)
+            throws IOException {
+        return attributes().readAttributes(attributes);
+    }
+
+    //
+    // Implementation Stub: DynAttributes, Read
+
+    /**
+     * @see FileSystemProvider#readAttributes(Path, Class, LinkOption...)
+     */
+    // I/O: File Attributes, Read by Subclass of BasicFileAttributes
+    public final <A extends BasicFileAttributes> A readAttributes(Class<A> type)
+            throws IOException {
+        if (!type.isAssignableFrom(DynAttributes.class))
+            throw new UnsupportedOperationException("Attributes of the given type are not supported");
+
+        DynAttributes<Space> attr = attributes();
+        if (!type.isAssignableFrom(attr.getClass()))
+            throw new UnsupportedOperationException("Attributes of the given type are not supported");
+        A attrAsAnA = (A) attr;
+
+        return (A) attributes();
+    }
+
+    //
+    // Implementation Stub: DynAttributes, Write
+
+    /**
+     * @see FileSystemProvider#setAttribute(Path, String, Object, LinkOption...)
+     */
+    // I/O: File Attributes, Set
+    public final void setAttribute(String attribute, Object value) throws IOException {
+        // TODO: Check access control to write
+        setAttributeImpl(attribute, value);
+        // TODO: Delete this comment - attributes().setAttribute(attribute, value);
+    }
+
+    // TODO: Call extra attributes "SpecialAttributes"?
+    protected abstract void setAttributeImpl(String attribute, Object value) throws IOException;
+
+    //
+    // Implementation Stub: DynAttributes
+
+    // TODO: Lazy read of attributes
+    private final DynAttributes<Space> attributes;
+
+    // TODO: Change to protected readAttributesImpl
+    // TODO: Add writeAttributesImpl?
+    public final DynAttributes<Space> attributes() {
+        return attributes;
+    }
+
+    // TODO: protected final setAttributes(...)
+    // TODO: protected abstract setAttributesImpl(...)
+    // TODO: For readAttributes(Class), if neither superclass nor subclass of
+    // DynAttributes, then throw ClassCastException
+
+    //
+    // Implementation Default: DynNode Type Attributes, Cache on Load
 
     public boolean isRegularFile() {
         return false;
@@ -165,44 +211,41 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     }
 
     //
-    // Implementation Stub: Size (Abstract)
+    // Interface Implementation: DynNode Hidden Attribute
 
-    public abstract long size();
+    public static final String HIDDEN_FILE_NAME_PREFIX = ".";
 
-    //
-    // Implementation: FileKey (Abstract)
-
-    public Object fileKey() {
-        return null;
+    public final boolean isHidden() throws IOException {
+        return getName().startsWith(HIDDEN_FILE_NAME_PREFIX);
     }
 
     //
-    // Implementation: Hidden (Abstract)
+    // Interface: Access Control (Future)
 
-    public boolean isHidden() {
-        return getName().startsWith(DynRoute.PREFIX_HIDDEN);
+    public final void checkAccess(AccessModes modes) {
+        // TODO: Future feature
+        throw new NotImplementedException("Access control is not yet implemented");
     }
 
     //
-    // Interface: Equals (Abstract)
+    // Implementation Stub: Node Equality Check
 
-    @Override
-    public boolean equals(Object other) {
-        if (!(other instanceof DynNode))
-            return false;
-        if (store != ((DynNode<?, ?>) other).store)
-            return false;
-
-        @SuppressWarnings("unchecked")
-        DynNode<Space, ?> otherNode = (DynNode<Space, ?>) other;
-
-        return isSameFile(otherNode);
-    }
-
+    // TODO: Change to protected
     public abstract boolean isSameFile(DynNode<Space, ?> other);
 
     //
-    // Interface: I/O
+    // Implementation Stub: DynFileSystemProvider I/O, Node Deletion
+
+    final void preDelete() throws IOException {
+        // TODO: Check access permissions (future feature)
+        // TODO: Close resources? Leave resources hanging to auto-close? (like Unix ext)
+        // TODO: Design philosophy: Should a failure during deleteImpl be allowed to
+        // have a persistent impact on the state of the application? (e.g. closed
+        // resources)
+        preDeleteImpl();
+    }
+
+    protected void preDeleteImpl() throws IOException {}
 
     /**
      * @see FileSystemProvider#delete(Path)
@@ -216,5 +259,7 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     }
 
     protected abstract void deleteImpl() throws IOException;
+
+    protected void postDeleteImpl() {}
 
 }

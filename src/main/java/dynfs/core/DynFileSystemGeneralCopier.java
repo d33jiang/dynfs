@@ -16,10 +16,8 @@ import dynfs.core.options.CopyOptions;
 import dynfs.core.options.OpenOptions;
 import dynfs.core.path.DynRoute;
 
-// TODO: public for testing (package private)
+// TODO: public for testing (change to package private)
 public final class DynFileSystemGeneralCopier {
-
-    private DynFileSystemGeneralCopier() {}
 
     //
     // Constant: Buffer Size
@@ -27,14 +25,18 @@ public final class DynFileSystemGeneralCopier {
     private static final int BUFFER_SIZE = 4096;
 
     //
-    // Implementation: Copy
+    // Construction: Disabled
 
+    private DynFileSystemGeneralCopier() {}
+
+    //
+    // Interface Implementation: Copy
+
+    // TODO: Adhere to API specification of Files.copy (re: copy to link, etc.)
     public static <S1 extends DynSpace<S1>, S2 extends DynSpace<S2>> void copy(DynFileSystem<S1> fsSrc,
             DynFileSystem<S2> fsDst, DynRoute src, DynRoute dst,
             CopyOptions copyOptions) throws IOException {
-        if (copyOptions.atomicMove) {
-            throw new IllegalArgumentException("Atomic move is not supported by DynFileSystemGeneralCopier");
-        }
+        // TODO: Check access control
 
         BasicFileAttributes srcAttributes = DynFileSystemIO.readAttributes(fsSrc, src, BasicFileAttributes.class,
                 copyOptions.getLinkOptions());
@@ -53,7 +55,7 @@ public final class DynFileSystemGeneralCopier {
         }
 
         if (srcAttributes.isDirectory()) {
-            dstResolution.lastParent().createDirectory(dst.getFileNameAsString());
+            dstResolution.lastParent().createDirectoryImpl(dst.getFileName());
         } else {
             OpenOptions readOptions = OpenOptions.parse(ImmutableList.of(StandardOpenOption.READ));
             OpenOptions writeOptions = OpenOptions
@@ -92,10 +94,13 @@ public final class DynFileSystemGeneralCopier {
     }
 
     //
-    // Implementation: Move
+    // Interface Implementation: Move
 
     public static void move(DynFileSystem<?> fsSrc, DynFileSystem<?> fsDst, DynRoute src, DynRoute dst,
             CopyOptions copyOptions) throws IOException {
+        if (copyOptions.atomicMove)
+            throw new IllegalArgumentException("Atomic move is not supported by DynFileSystemGeneralCopier");
+
         copy(fsSrc, fsDst, src, dst, copyOptions);
         fsSrc.resolve(src).testExistence().delete();
     }

@@ -2,11 +2,29 @@ package dynfs.core.options;
 
 import java.nio.file.AccessMode;
 
-public class AccessModes {
+public final class AccessModes {
 
-    public boolean read = false;
-    public boolean write = false;
-    public boolean execute = false;
+    //
+    // Configuration: Internal Data
+
+    private boolean read = false;
+    private boolean write = false;
+    private boolean execute = false;
+
+    public boolean read() {
+        return read;
+    }
+
+    public boolean write() {
+        return write;
+    }
+
+    public boolean execute() {
+        return execute;
+    }
+
+    //
+    // Construction: Factory
 
     private AccessModes() {}
 

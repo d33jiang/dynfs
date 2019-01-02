@@ -17,14 +17,6 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
         implements Iterable<DynNode<Space, ?>> {
 
     //
-    // Implementation: Attributes
-
-    @Override
-    public final boolean isDirectory() {
-        return true;
-    }
-
-    //
     // Construction
 
     // Root Directory
@@ -39,7 +31,15 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     }
 
     //
-    // Implementation: Size (Abstract)
+    // Interface Implementation: DynNode Type Attributes
+
+    @Override
+    public final boolean isDirectory() {
+        return true;
+    }
+
+    //
+    // Interface Implementation Default: DynNode Size Attribute
 
     @Override
     public long size() {
@@ -47,40 +47,74 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     }
 
     //
-    // Interface: I/O
+    // Implementation Stub: DynFileSystemProvider I/O, File Creation
+
+    public final DynFile<Space, ?> createFile(String name, FileAttribute<?>... attrs)
+            throws IOException {
+        // TODO: Check access control
+        return createFileImpl(name, attrs);
+    }
 
     /**
      * @see FileSystemProvider#newByteChannel(Path, Set, FileAttribute...)
      */
-    // File Creation
-    public abstract DynFile<Space, ?> createFile(String name, FileAttribute<?>... attrs)
+    // TODO: Change to protected
+    public abstract DynFile<Space, ?> createFileImpl(String name, FileAttribute<?>... attrs)
             throws IOException;
+
+    //
+    // Implementation Stub: DynFileSystemProvider I/O, Directory Creation
+
+    public final DynDirectory<Space, ?> createDirectory(String name, FileAttribute<?>... attrs)
+            throws IOException {
+        // TODO: Check access control
+        return createDirectoryImpl(name, attrs);
+    }
 
     /**
      * @see FileSystemProvider#createDirectory(Path, FileAttribute...)
      */
-    // Directory Creation
-    public abstract DynDirectory<Space, ?> createDirectory(String name, FileAttribute<?>... attrs)
+    // TODO: Change to protected
+    public abstract DynDirectory<Space, ?> createDirectoryImpl(String name, FileAttribute<?>... attrs)
             throws IOException;
 
-    // File Deletion
-    void deleteChild(String name, DynNode<Space, ?> node) throws IOException {
+    //
+    // Implementation Stub: DynFileSystemProvider I/O, Deletion
+
+    final void deleteChild(String name, DynNode<Space, ?> node) throws IOException {
+        node.preDelete();
+
         deleteChildImpl(name, node);
         node.deleteImpl();
+
+        node.postDeleteImpl();
     }
 
     protected abstract void deleteChildImpl(String name, DynNode<Space, ?> node) throws IOException;
+
+    //
+    // Interface Implementation Stub: DynFileSystemProvider I/O, Copy / Move
+
+    public final void copy(DynNode<Space, ?> src, String dstName) throws IOException {
+        // TODO: Check access control
+        copyImpl(src, dstName, false);
+    }
+
+    public final void move(DynNode<Space, ?> src, String dstName) throws IOException {
+        // TODO: Check access control
+        copyImpl(src, dstName, true);
+    }
 
     /**
      * @see FileSystemProvider#copy(Path, Path, CopyOption...)
      * @see FileSystemProvider#move(Path, Path, CopyOption...)
      */
-    // Copy / Move
-    public abstract void copy(DynNode<Space, ?> src, String dstName, boolean deleteSrc)
+    // TODO: Change to protected
+    public abstract void copyImpl(DynNode<Space, ?> src, String dstName, boolean deleteSrc)
             throws IOException;
 
     //
-    // Interface: Iterable<DynNode<>> (Abstract)
+    // Interface Implementation Stub: Iterable<DynNode<>>
 
     @Override
     public abstract Iterator<DynNode<Space, ?>> iterator();
@@ -90,7 +124,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     }
 
     //
-    // Implementation: Child Resolution (Abstract)
+    // Interface Implementation Stub: Child Resolution
 
     private DynNode<Space, ?> resolveRouteName(String name) throws IOException {
         if (DynRoute.PATH_CURDIR.equals(name))
@@ -103,7 +137,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     protected abstract DynNode<Space, ?> resolveChild(String name) throws IOException;
 
     //
-    // Implementation: DynRoute Resolution
+    // Interface: DynRoute Resolution
 
     public final ResolutionResult<Space> resolve(DynRoute route) throws IOException {
         return resolve(route, true);
@@ -126,16 +160,21 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
         return resolveImpl(route, followLinks, endIndex);
     }
 
-    private final ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks) throws IOException {
+    private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks) throws IOException {
         return resolveImpl(route, followLinks, route.getNameCount());
     }
 
-    private final ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks, int endIndex)
+    private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks, int endIndex)
             throws IOException {
         return resolveImpl(route, followLinks, 0, endIndex);
     }
 
-    private final ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks,
+    //
+    // Implementation: DynRoute Resolution
+
+    // NOTE: After UserPrincipal support is implemented, directory read access
+    // denied is a potential result, link read access denied is a potential result
+    private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks,
             int index, int endIndex) throws IOException {
         getStore().throwIfClosed();
 
@@ -144,7 +183,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
 
         while (index < endIndex) {
             try {
-                lastNode = lastParent.resolveRouteName(route.getNameAsString(index));
+                lastNode = lastParent.resolveRouteName(route.getName(index));
             } catch (IOException ex) {
                 return new ResolutionResult<Space>(lastParent, lastParent, route, index, endIndex,
                         Result.FAIL_IO_EXCEPTION_DURING_RESOLUTION, ex);

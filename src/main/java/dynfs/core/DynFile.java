@@ -8,7 +8,7 @@ public abstract class DynFile<Space extends DynSpace<Space>, Node extends DynFil
         extends DynNode<Space, Node> {
 
     //
-    // Implementation: Attributes
+    // Interface Implementation: DynNode Type Attributes
 
     @Override
     public final boolean isRegularFile() {
@@ -24,13 +24,16 @@ public abstract class DynFile<Space extends DynSpace<Space>, Node extends DynFil
     }
 
     //
-    // Implementation Stub: Size (Abstract)
+    // Implementation Stub: DynFile Size
 
+    // TODO: concrete implementation of package-private setSize + protected abstract
+    // ensureCapacity / limitCapacity?
     public abstract void setSize(long newSize) throws IOException;
 
     //
-    // Interface: File I/O
+    // Implementation Stub: DynFile I/O
 
+    // TODO: Change to protected
     public abstract DynFileIO<Space, Node> getIOInterface() throws IOException;
 
 }

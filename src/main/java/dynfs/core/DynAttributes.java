@@ -1,7 +1,6 @@
 package dynfs.core;
 
 import java.io.IOException;
-import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
@@ -9,17 +8,26 @@ import java.util.Map;
 
 import org.apache.commons.lang3.NotImplementedException;
 
-public class DynAttributes<Space extends DynSpace<Space>, Node extends DynNode<Space, Node>>
+public class DynAttributes<Space extends DynSpace<Space>>
         implements BasicFileAttributes {
 
+    // TODO: Should represent an immutable moment-in-time snapshot of the attributes
+    // of a file
+
+    // TODO: Support for extensibility of DynAttributes class?
+    // Requires design considerations across supportedFileAttributes(),
+    // getFileAttributes(), getAttribute(), and setAttribute() methods and across
+    // DynFileSystemProvider, DynFileSystem, DynStore, and DynNode classes
+
     //
-    // Field: Node
+    // Configuration: DynNode
 
-    private final DynNode<Space, Node> node;
+    private final DynNode<Space, ?> node;
 
     //
-    // Field: FileTime Attributes
+    // State: DynNode Time Attributes
 
+    // TODO: Should be final
     private FileTime creationTime;
     private FileTime lastModifiedTime;
     private FileTime lastAccessTime;
@@ -52,7 +60,10 @@ public class DynAttributes<Space extends DynSpace<Space>, Node extends DynNode<S
     }
 
     //
-    // Interface: File Attributes
+    // Interface: DynNode Type Attributes
+
+    // TODO: Should these be cached?
+    // NOTE: 4 booleans -> 4 bytes; 1 reference -> 4 bytes
 
     @Override
     public final boolean isRegularFile() {
@@ -75,7 +86,7 @@ public class DynAttributes<Space extends DynSpace<Space>, Node extends DynNode<S
     }
 
     //
-    // Interface: File Size
+    // Interface: DynNode Size Attribute
 
     @Override
     public final long size() {
@@ -83,7 +94,7 @@ public class DynAttributes<Space extends DynSpace<Space>, Node extends DynNode<S
     }
 
     //
-    // Interface: FileKey
+    // Interface: DynNode FileKey
 
     @Override
     public final Object fileKey() {
@@ -91,16 +102,10 @@ public class DynAttributes<Space extends DynSpace<Space>, Node extends DynNode<S
     }
 
     //
-    // Implementation: FileAttributesView
-
-    public final BasicFileAttributeView basicFileAttributeView() {
-        return new DynAttributesView<Space>(node.getStore(), node.getRoute());
-    }
-
-    //
     // Construction
 
-    public DynAttributes(DynNode<Space, Node> node) {
+    // TODO: protected constructor?
+    public DynAttributes(DynNode<Space, ?> node) {
         this.node = node;
 
         FileTime t = FileTime.from(Instant.now());
@@ -112,18 +117,29 @@ public class DynAttributes<Space extends DynSpace<Space>, Node extends DynNode<S
     //
     // Implementation: Read by Attribute Sets
 
-    Map<String, Object> readAttributes(String attributes)
+    final Map<String, Object> readAttributes(String attributes)
             throws IOException {
         // TODO: Implementation
+        // call impl
+        // merge default in, overwriting
+        // TODO: Consider access modifier
         throw new NotImplementedException("Not yet implemented");
     }
+
+    // TODO: Call extra attributes "SpecialAttributes"?
+    // TODO: protected abstract readNonDefaultAttributes(String)
 
     //
     // Implementation: Set Attribute Value
 
-    void setAttribute(String attribute, Object value) {
+    final void setAttribute(String attribute, Object value) {
+        // TODO: Should this method even be in this class? Consider the purpose of this
+        // class
         // TODO: Implementation
+        // TODO: Consider access modifier
         throw new NotImplementedException("Not yet implemented");
     }
+
+    // TODO: protected abstract setNonDefaultAttributes(String)
 
 }

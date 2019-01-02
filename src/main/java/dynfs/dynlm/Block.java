@@ -52,11 +52,19 @@ public class Block extends BlockLike implements Dumpable {
     }
 
     //
-    // Interface: Size
+    // Implementation: Capacity
 
     @Override
-    protected int setSize(int newSize) {
-        throw new UnsupportedOperationException("Blocks cannot be resized");
+    protected int ensureCapacityImpl(int minCapacity) {
+        if (minCapacity > BLOCK_SIZE)
+            throw new UnsupportedOperationException("Blocks cannot be resized");
+
+        return BLOCK_SIZE;
+    }
+
+    @Override
+    protected int trimCapacityImpl(int minCapacity) {
+        return BLOCK_SIZE;
     }
 
     //

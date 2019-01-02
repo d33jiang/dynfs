@@ -9,58 +9,64 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
+import dynfs.template.Allocator;
+
 public class BlockList extends BlockLike {
 
     //
     // Helper: Block Size Calculation
 
     private static int __calculateConstructorArgumentSize(Block[] args) {
-        return Arrays.stream(args).mapToInt(Block::size).sum();
+        return Arrays.stream(args).mapToInt(Block::capacity).sum();
     }
 
     //
     // Field: Internal Data
 
-    private final Allocator<LMFile> store;
+    private final Allocator<LMFile, Block> mem;
     private final LMFile file;
     private final NavigableMap<Integer, Block> nested;
 
-    public BlockList(Allocator<LMFile> store, LMFile file, Block... nested) throws IOException {
+    public BlockList(Allocator<LMFile, Block> mem, LMFile file, Block... nested) throws IOException {
         super(__calculateConstructorArgumentSize(nested));
 
-        this.store = store;
+        this.mem = mem;
         this.file = file;
         this.nested = new TreeMap<>();
 
         int offset = 0;
         for (Block b : nested) {
             this.nested.put(offset, b);
-            offset += b.size();
+            offset += b.capacity();
         }
     }
 
     //
-    // Implementation: Size
+    // Implementation: Capacity
 
     @Override
-    protected int setSize(int newSize) throws IOException {
-        if (newSize > size()) {
-            int numNewBlocks = Block.numBlocks(newSize - size());
-            int offset = size();
+    protected int ensureCapacityImpl(int minCapacity) throws IOException {
+        int numNewBlocks = Block.numBlocks(minCapacity - capacity());
+        int offset = capacity();
 
-            List<Block> allocatedBlocks = store.allocateBlocks(file, numNewBlocks);
-            for (Block b : allocatedBlocks) {
-                nested.put(offset, b);
-                offset += b.size();
-            }
-        } else {
-            Collection<Block> toBeFreed = nested.tailMap(newSize).values();
-            List<Block> freedBlocks = new ArrayList<>(toBeFreed);
-            toBeFreed.clear();
-            store.freeBlocks(file, freedBlocks);
+        Iterable<Block> allocatedBlocks = mem.allocate(file, numNewBlocks);
+        for (Block b : allocatedBlocks) {
+            nested.put(offset, b);
+            offset += b.capacity();
         }
 
-        return super.setSize(newSize);
+        return offset;
+    }
+
+    @Override
+    protected int trimCapacityImpl(int minCapacity) throws IOException {
+        Collection<Block> toBeFreed = nested.tailMap(minCapacity).values();
+        List<Block> freedBlocks = new ArrayList<>(toBeFreed);
+
+        toBeFreed.clear();
+        mem.free(file, freedBlocks);
+
+        return nested.lastKey() + nested.lastEntry().getValue().capacity(); // TODO: getEndIndex
     }
 
     //
@@ -88,17 +94,17 @@ public class BlockList extends BlockLike {
                 // Copy start block
                 Block startBlock = start.getValue();
                 int offsetWithinStart = off - start.getKey();
-                int sizeWithinStart = startBlock.size() - offsetWithinStart;
+                int sizeWithinStart = startBlock.capacity() - offsetWithinStart;
                 startBlock.uncheckedTransfer(offsetWithinStart, other, otherOff, sizeWithinStart, read);
                 otherOff += sizeWithinStart;
                 len -= sizeWithinStart;
             }
             for (Block b : tail.values()) {
                 // Copy remaining blocks
-                if (len > b.size()) {
-                    b.uncheckedTransfer(0, other, otherOff, b.size(), read);
-                    otherOff += b.size();
-                    len -= b.size();
+                if (len > b.capacity()) {
+                    b.uncheckedTransfer(0, other, otherOff, b.capacity(), read);
+                    otherOff += b.capacity();
+                    len -= b.capacity();
                 } else {
                     b.uncheckedTransfer(0, other, otherOff, len, read);
                     otherOff += len;

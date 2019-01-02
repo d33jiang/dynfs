@@ -15,9 +15,9 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
     // TODO: Lazy size calculation interface
 
     //
-    // Validation Helper: Size
+    // Static Support: Size Validation
 
-    private static void validateSize(long size, String label) {
+    private static void validateSize(String label, long size) {
         if (size < 0) {
             if (label == null)
                 label = "The size argument";
@@ -25,7 +25,7 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
         }
     }
 
-    private static void validateSize(long size, String label, long maxValue, String labelMaxValue) {
+    private static void validateSize(String label, long size, String labelMaxValue, long maxValue) {
         if (size < 0) {
             if (label == null)
                 label = "The size argument";
@@ -39,7 +39,9 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
     }
 
     //
-    // Field: Total Space
+    // Configuration: Total Space
+
+    // TODO: API Clarification - Is totalSpace every allowed to change?
 
     private final long totalSpace;
 
@@ -49,87 +51,39 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
     }
 
     //
-    // Field: Allocated Space
+    // State: Allocated Space
 
     private long allocatedSpace;
 
-    public final long getAllocatedSpace() {
+    public final long getAllocatedSpace() throws IOException {
+        if (isAllocatedSpaceSizeStale()) {
+            refreshAllocatedSpaceSize();
+        }
         return allocatedSpace;
-    }
-
-    protected final void setAllocatedSpace(long allocatedSpace) {
-        validateSize(allocatedSpace, "usedSpace", totalSpace, "totalSpace");
-        this.allocatedSpace = allocatedSpace;
     }
 
     @Override
     public final long getUnallocatedSpace() throws IOException {
-        return totalSpace - allocatedSpace;
+        return totalSpace - getAllocatedSpace();
     }
 
-    //
-    // Interface: Usable Space (Abstract)
-
-    @Override
-    public long getUsableSpace() throws IOException {
-        return getUnallocatedSpace();
+    protected final void setAllocatedSpace(long allocatedSpace) {
+        validateSize("allocatedSpace", allocatedSpace, "totalSpace", totalSpace);
+        this.allocatedSpace = allocatedSpace;
     }
 
-    //
-    // Construction
-
-    protected DynSpace(long totalSpace) {
-        this(totalSpace, 0);
+    protected boolean isAllocatedSpaceSizeStale() throws IOException {
+        return false;
     }
 
-    protected DynSpace(long totalSpace, long usedSpace) {
-        validateSize(totalSpace, "totalSpace");
-        validateSize(usedSpace, "usedSpace", totalSpace, "totalSpace");
-
-        this.totalSpace = totalSpace;
-        this.allocatedSpace = usedSpace;
-    }
+    protected void refreshAllocatedSpaceSize() throws IOException {}
 
     //
-    // Implementation Stub: DynSpace Properties (Abstract)
+    // State: Status
 
-    @Override
-    public abstract String name();
-
-    @Override
-    public abstract String type();
-
-    @Override
-    public abstract boolean isReadOnly();
-
-    //
-    // Implementation Stub: DynSpace Attributes (Abstract)
-
-    @Override
-    public abstract <V extends FileStoreAttributeView> V getFileStoreAttributeView(Class<V> type);
-
-    @Override
-    public abstract Object getAttribute(String attribute) throws IOException;
-
-    //
-    // Implementation Stub: Supported File Attribute Views (Abstract)
-
-    public abstract Set<Class<? extends FileAttributeView>> supportedFileAttributeViews();
-
-    public abstract Set<String> supportedFileAttributeViewsByName();
-
-    @Override
-    public final boolean supportsFileAttributeView(Class<? extends FileAttributeView> type) {
-        return supportedFileAttributeViews().contains(type);
-    }
-
-    @Override
-    public final boolean supportsFileAttributeView(String name) {
-        return supportedFileAttributeViewsByName().contains(name);
-    }
-
-    //
-    // Implementation Stub: Close (Abstract)
+    // TODO: 3-phase w/ sync
+    // TODO: Does DynFileSystem really need 3-phase w/ sync if this class employs
+    // 3-phase sync?
 
     private boolean isClosed;
 
@@ -151,12 +105,86 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
     protected abstract void closeImpl() throws IOException;
 
     //
-    // Implementation Stub: Root Directory
+    // Construction
+
+    protected DynSpace(long totalSpace) {
+        this(totalSpace, 0);
+    }
+
+    protected DynSpace(long totalSpace, long usedSpace) {
+        validateSize("totalSpace", totalSpace);
+        validateSize("usedSpace", usedSpace, "totalSpace", totalSpace);
+
+        this.totalSpace = totalSpace;
+        this.allocatedSpace = usedSpace;
+
+        this.isClosed = false;
+    }
+
+    //
+    // Interface Implementation Default: Usable Space
+
+    @Override
+    public long getUsableSpace() throws IOException {
+        return getUnallocatedSpace();
+    }
+
+    //
+    // Interface Implementation Stub: DynSpace Properties
+
+    // TODO: Review API specification for name()
+    @Override
+    public abstract String name();
+
+    @Override
+    public abstract String type();
+
+    // TODO: API Clarification - Is isReadOnly allowed to change?
+    @Override
+    public abstract boolean isReadOnly();
+
+    //
+    // Implementation Stub: DynSpace Attributes
+
+    // TODO: Concrete implementation to get name?
+    // TODO: Concrete implementation to get default DynSpaceAttributes
+    // create default DynSpace attributes class
+    // abstract impl to get SpecialAttributes
+    // TODO: Rename DynAttributes to DynNodeAttributes
+
+    @Override
+    public abstract <V extends FileStoreAttributeView> V getFileStoreAttributeView(Class<V> type);
+
+    @Override
+    public abstract Object getAttribute(String attribute) throws IOException;
+
+    //
+    // Implementation Stub: Supported File Attribute Views
+
+    @Override
+    public final boolean supportsFileAttributeView(Class<? extends FileAttributeView> type) {
+        return supportedFileAttributeViews().contains(type);
+    }
+
+    @Override
+    public final boolean supportsFileAttributeView(String name) {
+        return supportedFileAttributeViewsByName().contains(name);
+    }
+
+    // TODO: Concrete implementation to get default DynFileAttributesView types
+    // union with SpecialAttributeViews
+
+    public abstract Set<Class<? extends FileAttributeView>> supportedFileAttributeViews();
+
+    public abstract Set<String> supportedFileAttributeViewsByName();
+
+    //
+    // Interface Implementation Stub: Root Directory
 
     public abstract <DirNode extends DynDirectory<Space, DirNode>> DirNode getRootDirectory();
 
     //
-    // Interface: Route Resolution
+    // Package Support: Route Resolution
 
     final ResolutionResult<Space> resolve(DynRoute route) throws IOException {
         return getRootDirectory().resolve(route);
