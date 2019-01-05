@@ -7,17 +7,40 @@ import gnu.trove.stack.array.TIntArrayStack;
 
 public interface Dumpable {
 
+    //
+    // Support Structure: Builder
+
     public static final class DumpBuilder {
 
+        //
+        // Constant: Prefix Configuration
+
         private static final String HEAD_PREFIX = "> ";
+
+        //
+        // Constant: Indentation Configuration
+
         private static final int BODY_INDENT_SIZE = 4;
         private static final int DUMPABLE_PUSH_SIZE = 3;
 
+        //
+        // State: Dump String
+
         private final StringBuilder sb;
+
+        //
+        // State: Indentation Record
+
         private final TIntStack indentDepths;
         private final TByteStack isGenerated;
 
+        //
+        // State: Last Character Optional
+
         private boolean truncateLastCharacterOnBuild;
+
+        //
+        // Construction
 
         private DumpBuilder() {
             this.sb = new StringBuilder();
@@ -30,15 +53,13 @@ public interface Dumpable {
             truncateLastCharacterOnBuild = true;
         }
 
-        private void __putNewline() {
-            // sb.append(System.lineSeparator());
-            sb.append('\n');
+        private DumpBuilder(Dumpable d) {
+            this();
+            loadDumpable(d);
         }
 
-        private void __putIndent(int size) {
-            for (int i = 0; i < size; i++)
-                sb.append(' ');
-        }
+        //
+        // Support: Indentation Stack Manipulation
 
         private void __pushIndent(int size, boolean isGenerated) {
             this.indentDepths.push(indentDepths.peek() + size);
@@ -62,13 +83,23 @@ public interface Dumpable {
             __popIndent(true);
         }
 
-        private void mark(String tag) {
-            __putIndent(indentDepths.peek() - HEAD_PREFIX.length());
-            sb.append(HEAD_PREFIX);
-            sb.append(tag);
-            __putNewline();
-            truncateLastCharacterOnBuild = true;
+        //
+        // Support: Raw Write, Newlines
+
+        private void __putNewline() {
+            sb.append(System.lineSeparator());
         }
+
+        //
+        // Support: Raw Write, Indentation
+
+        private void __putIndent(int size) {
+            for (int i = 0; i < size; i++)
+                sb.append(' ');
+        }
+
+        //
+        // Support: Indentation, Body
 
         private void open() {
             pushGeneratedIndent(BODY_INDENT_SIZE);
@@ -78,10 +109,27 @@ public interface Dumpable {
             popGeneratedIndent();
         }
 
+        //
+        // Support: NL Write, Head Mark
+
+        private void mark(String tag) {
+            __putIndent(indentDepths.peek() - HEAD_PREFIX.length());
+            sb.append(HEAD_PREFIX);
+            sb.append(tag);
+            __putNewline();
+            truncateLastCharacterOnBuild = true;
+        }
+
+        //
+        // Interface: NL Write, Indentation
+
         public void insertIndent() {
             __putIndent(indentDepths.peek());
             truncateLastCharacterOnBuild = false;
         }
+
+        //
+        // Interface: Core Write, Content
 
         public void write(char c) {
             sb.append(c);
@@ -93,10 +141,16 @@ public interface Dumpable {
             truncateLastCharacterOnBuild = false;
         }
 
+        //
+        // Interface: Core Write, Newline
+
         public void newline() {
             __putNewline();
             truncateLastCharacterOnBuild = true;
         }
+
+        //
+        // Interface: NL Write, Content
 
         public void writeLine(String line) {
             insertIndent();
@@ -115,6 +169,9 @@ public interface Dumpable {
             }
         }
 
+        //
+        // Interface: Nested Dumps
+
         public void nest(Dumpable nested) {
             pushGeneratedIndent(DUMPABLE_PUSH_SIZE);
             loadDumpable(nested);
@@ -129,6 +186,9 @@ public interface Dumpable {
             popGeneratedIndent();
         }
 
+        //
+        // Interface: Custom Indentation
+
         public void pushIndent(int size) {
             __pushIndent(size, false);
         }
@@ -137,12 +197,14 @@ public interface Dumpable {
             __popIndent(false);
         }
 
-        private DumpBuilder loadDumpable(Dumpable d) {
+        //
+        // Support: Load Dump
+
+        private void loadDumpable(Dumpable d) {
             mark(d.__getDumpTag());
             open();
             d.__dump(this);
             close();
-            return this;
         }
 
         public String build() {
@@ -155,13 +217,22 @@ public interface Dumpable {
 
     }
 
+    //
+    // Implementation: Dump
+
     public default DumpBuilder dump() {
-        return new DumpBuilder().loadDumpable(this);
+        return new DumpBuilder(this);
     }
+
+    //
+    // Interface Implementation: Dump Tag
 
     public default String __getDumpTag() {
         return this.getClass().getName();
     }
+
+    //
+    // Interface Implementation: Dump Body
 
     public void __dump(DumpBuilder db);
 

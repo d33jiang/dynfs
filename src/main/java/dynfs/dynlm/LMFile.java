@@ -1,40 +1,36 @@
 package dynfs.dynlm;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang3.NotImplementedException;
 
 import dynfs.core.DynFile;
+import dynfs.core.DynFileIO;
 import dynfs.core.DynNode;
-import dynfs.core.io.DynFileIO;
+import dynfs.core.DynNodeAttribute;
 
 public class LMFile extends DynFile<LMSpace, LMFile> {
 
     //
-    // Field: Data
+    // State: Data
 
     private BlockList data;
+
+    //
+    // State: Size
+
     private long size;
 
-    //
-    // Interface: Data
-
-    BlockLike getData() {
-        // TODO: Restrict interface to expose only read/write methods?
-        return data;
-    }
-
-    //
-    // Interface: Size
-
     @Override
-    public long size() {
+    public long readSize() {
         return size;
     }
 
     @Override
-    public void setSize(long size) throws IOException {
-        int minCapacity = LMSpace.getIntValue(size);
+    protected void writeSize(long size) throws IOException {
+        int minCapacity = BlockLike.getIntValue(size);
         if (size > this.size) {
             this.data.ensureCapacity(minCapacity);
         } else {
@@ -55,55 +51,77 @@ public class LMFile extends DynFile<LMSpace, LMFile> {
     }
 
     //
-    // Interface: DynFileIO
+    // Core Support: Conversion to String
 
-    @Override
-    public DynFileIO<LMSpace, LMFile> getIOInterface() throws IOException {
-        return new DynFileIO<LMSpace, LMFile>(this) {
-            @Override
-            protected void uncheckedWriteByte(long off, byte val) {
-                data.uncheckedWriteByte(LMSpace.getIntValue(off), val);
-            }
-
-            @Override
-            protected void uncheckedWrite(long off, byte[] src, int srcOff, int len) {
-                data.uncheckedWrite(LMSpace.getIntValue(off), src, srcOff, len);
-            }
-
-            @Override
-            protected byte uncheckedReadByte(long off) {
-                return data.uncheckedReadByte(LMSpace.getIntValue(off));
-            }
-
-            @Override
-            protected void uncheckedRead(long off, byte[] dst, int dstOff, int len) {
-                data.uncheckedRead(LMSpace.getIntValue(off), dst, dstOff, len);
-            }
-        };
-    }
-
-    //
-    // Interface: Equals Node
-
-    @Override
-    public boolean isSameFile(DynNode<LMSpace, ?> other) {
-        return this == other;
-    }
-
-    @Override
-    protected void deleteImpl() throws IOException {
-        setSize(0);
-    }
-
-    // TODO: DEBUG
+    // DEBUG
     @Override
     public String toString() {
         return getRouteString() + " -> " + size;
     }
 
+    //
+    // Implementation: DynFileIO
+
     @Override
-    protected void setAttributeImpl(String attribute, Object value) throws IOException {
+    protected DynFileIO getIOInterface() throws IOException {
+        return new DynFileIO(this) {
+            @Override
+            protected void uncheckedWriteByte(long off, byte val) {
+                data.uncheckedWriteByte(off, val);
+            }
+
+            @Override
+            protected void uncheckedWrite(long off, byte[] src, int srcOff, int len) {
+                data.uncheckedWrite(off, src, srcOff, len);
+            }
+
+            @Override
+            protected byte uncheckedReadByte(long off) {
+                return data.uncheckedReadByte(off);
+            }
+
+            @Override
+            protected void uncheckedRead(long off, byte[] dst, int dstOff, int len) {
+                data.uncheckedRead(off, dst, dstOff, len);
+            }
+        };
+    }
+
+    //
+    // Implementation: I/O, Equality Check
+
+    @Override
+    protected boolean isSameFile(DynNode<LMSpace, ?> other) {
+        return this == other;
+    }
+
+    //
+    // Implementation: I/O, Node Deletion
+
+    @Override
+    protected void deleteImpl() throws IOException {
+        writeSize(0);
+    }
+
+    //
+    // Implementation: Attribute I/O
+
+    @Override
+    protected Map<DynNodeAttribute, Object> readAttributesImpl(Set<DynNodeAttribute> keys) throws IOException {
         // TODO: Auto-generated method stub
         throw new NotImplementedException("Method stub");
     }
+
+    @Override
+    protected Map<DynNodeAttribute, Object> readAllAttributes() throws IOException {
+        // TODO: Auto-generated method stub
+        throw new NotImplementedException("Method stub");
+    }
+
+    @Override
+    protected Map<String, Object> writeAttributesImpl(Map<String, ?> newMappings) throws IOException {
+        // TODO: Auto-generated method stub
+        throw new NotImplementedException("Method stub");
+    }
+
 }

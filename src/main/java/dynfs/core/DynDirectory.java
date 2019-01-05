@@ -10,7 +10,6 @@ import java.util.Iterator;
 import java.util.Set;
 
 import dynfs.core.ResolutionResult.Result;
-import dynfs.core.path.DynRoute;
 
 public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends DynDirectory<Space, Node>>
         extends DynNode<Space, Node>
@@ -39,14 +38,6 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     }
 
     //
-    // Interface Implementation Default: DynNode Size Attribute
-
-    @Override
-    public long size() {
-        return 0L;
-    }
-
-    //
     // Implementation Stub: DynFileSystemProvider I/O, File Creation
 
     public final DynFile<Space, ?> createFile(String name, FileAttribute<?>... attrs)
@@ -58,8 +49,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     /**
      * @see FileSystemProvider#newByteChannel(Path, Set, FileAttribute...)
      */
-    // TODO: Change to protected
-    public abstract DynFile<Space, ?> createFileImpl(String name, FileAttribute<?>... attrs)
+    protected abstract DynFile<Space, ?> createFileImpl(String name, FileAttribute<?>... attrs)
             throws IOException;
 
     //
@@ -74,12 +64,11 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     /**
      * @see FileSystemProvider#createDirectory(Path, FileAttribute...)
      */
-    // TODO: Change to protected
-    public abstract DynDirectory<Space, ?> createDirectoryImpl(String name, FileAttribute<?>... attrs)
+    protected abstract DynDirectory<Space, ?> createDirectoryImpl(String name, FileAttribute<?>... attrs)
             throws IOException;
 
     //
-    // Implementation Stub: DynFileSystemProvider I/O, Deletion
+    // Implementation Stub: DynFileSystemProvider I/O, Child Deletion
 
     final void deleteChild(String name, DynNode<Space, ?> node) throws IOException {
         node.preDelete();
@@ -109,12 +98,11 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
      * @see FileSystemProvider#copy(Path, Path, CopyOption...)
      * @see FileSystemProvider#move(Path, Path, CopyOption...)
      */
-    // TODO: Change to protected
-    public abstract void copyImpl(DynNode<Space, ?> src, String dstName, boolean deleteSrc)
+    protected abstract void copyImpl(DynNode<Space, ?> src, String dstName, boolean deleteSrc)
             throws IOException;
 
     //
-    // Interface Implementation Stub: Iterable<DynNode<>>
+    // Interface Implementation Stub: Iterable<DynNode>
 
     @Override
     public abstract Iterator<DynNode<Space, ?>> iterator();
@@ -172,8 +160,8 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     //
     // Implementation: DynRoute Resolution
 
-    // NOTE: After UserPrincipal support is implemented, directory read access
-    // denied is a potential result, link read access denied is a potential result
+    // NOTE: After UserPrincipal support is implemented, "directory read access
+    // denied" and "link read access denied" are potential results
     private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks,
             int index, int endIndex) throws IOException {
         getStore().throwIfClosed();

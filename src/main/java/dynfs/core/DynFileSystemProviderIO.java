@@ -1,11 +1,13 @@
-package dynfs.core.io;
+package dynfs.core;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.DirectoryStream.Filter;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -13,42 +15,57 @@ import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.util.Map;
 
-import dynfs.core.DynAttributesView;
-import dynfs.core.DynDirectory;
-import dynfs.core.DynFileSystem;
-import dynfs.core.DynFileSystemGeneralCopier;
-import dynfs.core.DynNode;
-import dynfs.core.DynSpace;
-import dynfs.core.ResolutionResult;
 import dynfs.core.options.AccessModes;
 import dynfs.core.options.CopyOptions;
 import dynfs.core.options.LinkOptions;
 import dynfs.core.options.OpenOptions;
-import dynfs.core.path.DynRoute;
 
-public final class DynFileSystemIO {
-
-    // TODO: Create/delete/access curDir / parentDir?
-    // TODO: Rename to DynFileSystemProviderIO?
+public final class DynFileSystemProviderIO {
 
     //
     // Construction: Disabled
 
-    private DynFileSystemIO() {}
+    private DynFileSystemProviderIO() {}
 
     //
     // Interface Implementation: DynFileSystemProvider I/O
 
-    public static SeekableByteChannel newByteChannel(DynFileSystem<?> fs, DynRoute route, OpenOptions openOptions,
-            FileAttribute<?>... attrs)
-            throws IOException {
-        return fs.newByteChannel(route, openOptions, attrs);
+    public static <Space extends DynSpace<Space>> SeekableByteChannel newByteChannel(DynFileSystem<Space> fs,
+            DynRoute route, OpenOptions openOptions, FileAttribute<?>... attrs) throws IOException {
+        ResolutionResult<Space> resolution = fs.resolve(route);
+        DynNode<Space, ?> node = resolution.testExistenceForCreation();
+
+        if (node != null && !(node instanceof DynFile)) {
+            // Non-file exists at route
+            throw new FileAlreadyExistsException(route.toString(), null, "Non-file already exists");
+        }
+        DynFile<Space, ?> file = (DynFile<Space, ?>) node;
+
+        if (file != null && openOptions.createNew)
+            throw new FileAlreadyExistsException(route.toString());
+        if (file == null && !(openOptions.create || openOptions.createNew))
+            throw new FileNotFoundException(route.toString());
+
+        if (file == null) {
+            file = ((DynDirectory<Space, ?>) resolution.node()).createFile(route.getFileName(),
+                    attrs);
+        }
+
+        // TODO: Check access control
+
+        return new DynByteChannel(file, openOptions);
     }
 
-    public static DirectoryStream<Path> newDirectoryStream(DynFileSystem<?> fs, DynRoute dir,
-            Filter<? super Path> filter)
-            throws IOException {
-        return fs.newDirectoryStream(dir, filter);
+    public static <Space extends DynSpace<Space>> DirectoryStream<Path> newDirectoryStream(DynFileSystem<Space> fs,
+            DynRoute dir, Filter<? super Path> filter) throws IOException {
+        DynNode<Space, ?> node = fs.resolve(dir).testExistence();
+
+        if (!(node instanceof DynDirectory))
+            throw new NotDirectoryException(dir.toString());
+
+        // TODO: Check access control
+
+        return new DynDirectoryStream<Space>((DynDirectory<Space, ?>) node, filter);
     }
 
     public static <Space extends DynSpace<Space>> void createDirectory(DynFileSystem<Space> fs, DynRoute dir,
@@ -118,7 +135,7 @@ public final class DynFileSystemIO {
         DynDirectory<Space, ?> dstParentNode = dstNode == null ? (DynDirectory<Space, ?>) dstResolution.node()
                 : dstNode.getParent();
 
-        BasicFileAttributes srcAttributes = srcNode.readAttributes(BasicFileAttributes.class);
+        BasicFileAttributes srcAttributes = srcNode.readAttributesAsFileAttributesClass(BasicFileAttributes.class);
 
         if (dstNode != null) {
             if (copyOptions.replaceExisting) {
@@ -184,16 +201,21 @@ public final class DynFileSystemIO {
         node.checkAccess(accessModes);
     }
 
-    // TODO: Is there a workaround instead of the SupressWarnings annotation?
-    @SuppressWarnings("unchecked")
     public static <Space extends DynSpace<Space>, V extends FileAttributeView> V getFileAttributeView(
             DynFileSystem<Space> fs, DynRoute route,
             Class<V> type,
             LinkOptions linkOptions) {
-        if (!type.isAssignableFrom(DynAttributesView.class))
+        if (!type.isAssignableFrom(DynNodeFileAttributeView.class))
             return null;
 
-        return (V) new DynAttributesView<Space>(fs.getStore(), route);
+        DynNodeFileAttributeView attributeView = new DynNodeFileAttributeView(fs.getStore(), route);
+
+        // If (type.isAssignableFrom(DynNodeFileAttributeView.class)), then
+        // attributeView is of type V.
+        @SuppressWarnings("unchecked")
+        V result = (V) attributeView;
+
+        return result;
     }
 
     public static <Space extends DynSpace<Space>, A extends BasicFileAttributes> A readAttributes(
@@ -202,7 +224,7 @@ public final class DynFileSystemIO {
             LinkOptions linkOptions)
             throws IOException {
         DynNode<Space, ?> node = fs.resolve(route, !linkOptions.nofollowLinks).testExistence();
-        return node.readAttributes(type);
+        return node.readAttributesAsFileAttributesClass(type);
     }
 
     public static <Space extends DynSpace<Space>> Map<String, Object> readAttributes(DynFileSystem<Space> fs,
@@ -216,7 +238,7 @@ public final class DynFileSystemIO {
             String attribute, Object value,
             LinkOptions linkOptions) throws IOException {
         DynNode<Space, ?> node = fs.resolve(route, !linkOptions.nofollowLinks).testExistence();
-        node.setAttribute(attribute, value);
+        node.writeAttribute(attribute, value);
     }
 
 }

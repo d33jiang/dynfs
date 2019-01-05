@@ -14,22 +14,27 @@ import java.util.stream.IntStream;
 import dynfs.debug.Dumpable;
 import dynfs.template.Allocator;
 
-public final class LMMemory implements Allocator<LMFile, Block> {
+public final class BlockMemory implements Allocator<LMFile, Block> {
+
+    // TODO: Rename to BlockMemory<BlockOwner>
 
     //
-    // Interface Field: Allocated Space
+    // Configuration: Callback, Set Allocated Space
 
     private final IntConsumer setAllocatedSpace;
 
     //
-    // Field: Internal Data
+    // State: Blocks
 
     private final Block[] blocks;
 
     private final Map<Integer, LMFile> reservedBlocks;
     private final Deque<Integer> freeBlocks;
 
-    public LMMemory(IntConsumer setAllocatedSpace, int totalSpace) throws IOException {
+    //
+    // Construction
+
+    public BlockMemory(IntConsumer setAllocatedSpace, int totalSpace) throws IOException {
         this.setAllocatedSpace = setAllocatedSpace;
 
         this.blocks = new Block[Block.numBlocks(totalSpace)];

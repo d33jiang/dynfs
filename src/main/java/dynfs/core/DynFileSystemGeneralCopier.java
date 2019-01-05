@@ -11,13 +11,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 import com.google.common.collect.ImmutableList;
 
-import dynfs.core.io.DynFileSystemIO;
 import dynfs.core.options.CopyOptions;
 import dynfs.core.options.OpenOptions;
-import dynfs.core.path.DynRoute;
 
-// TODO: public for testing (change to package private)
-public final class DynFileSystemGeneralCopier {
+final class DynFileSystemGeneralCopier {
 
     //
     // Constant: Buffer Size
@@ -38,7 +35,8 @@ public final class DynFileSystemGeneralCopier {
             CopyOptions copyOptions) throws IOException {
         // TODO: Check access control
 
-        BasicFileAttributes srcAttributes = DynFileSystemIO.readAttributes(fsSrc, src, BasicFileAttributes.class,
+        BasicFileAttributes srcAttributes = DynFileSystemProviderIO.readAttributes(fsSrc, src,
+                BasicFileAttributes.class,
                 copyOptions.getLinkOptions());
 
         ResolutionResult<S2> dstResolution = fsDst.resolve(dst);
@@ -64,8 +62,8 @@ public final class DynFileSystemGeneralCopier {
                 readOptions.nofollowLinks = true;
             }
 
-            try (ByteChannel in = fsSrc.newByteChannel(src, readOptions);
-                    ByteChannel out = fsDst.newByteChannel(dst, writeOptions)) {
+            try (ByteChannel in = DynFileSystemProviderIO.newByteChannel(fsSrc, src, readOptions);
+                    ByteChannel out = DynFileSystemProviderIO.newByteChannel(fsDst, dst, writeOptions)) {
                 ByteBuffer buf = ByteBuffer.allocate(BUFFER_SIZE);
 
                 while (in.read(buf) != -1) {
@@ -76,7 +74,7 @@ public final class DynFileSystemGeneralCopier {
 
         if (copyOptions.copyAttributes) {
             try {
-                BasicFileAttributeView dstAttributes = DynFileSystemIO.getFileAttributeView(fsDst, dst,
+                BasicFileAttributeView dstAttributes = DynFileSystemProviderIO.getFileAttributeView(fsDst, dst,
                         BasicFileAttributeView.class,
                         copyOptions.getLinkOptions());
                 dstAttributes.setTimes(srcAttributes.lastModifiedTime(), srcAttributes.lastAccessTime(),

@@ -5,11 +5,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.spi.FileSystemProvider;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,7 +14,7 @@ import com.google.common.collect.ImmutableSet;
 
 import dynfs.core.DynFileSystem;
 import dynfs.core.DynFileSystemProvider;
-import dynfs.core.path.DynPath;
+import dynfs.core.DynPath;
 import dynfs.core.store.DynSpaceFactory;
 import dynfs.dynlm.Block;
 import dynfs.dynlm.LMSpace;
@@ -43,7 +40,7 @@ public class Main {
         System.out.println(dfsp);
         System.out.println();
 
-        DynSpaceFactory<LMSpace> fac = p -> new LMSpace(Block.sizeOfNBlocks(12));
+        DynSpaceFactory<LMSpace> fac = p -> new LMSpace("asdf", Block.sizeOfNBlocks(12));
         DynFileSystem<LMSpace> fs = dfsp.<LMSpace>newFileSystem("asdf", fac,
                 null);
         LMSpace store = fs.getStore();
@@ -91,11 +88,6 @@ public class Main {
         System.out.println("##");
         System.out.println(store.getMemory().dumpBlock(1).dump().build());
         System.out.println("##");
-
-        //
-        //
-
-        ArrayList<String> a;
 
     }
 

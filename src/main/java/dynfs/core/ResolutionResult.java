@@ -5,8 +5,6 @@ import java.nio.file.FileSystemLoopException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
 
-import dynfs.core.path.DynRoute;
-
 public final class ResolutionResult<Space extends DynSpace<Space>> {
 
     //
@@ -132,14 +130,19 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
     //
     // Implementation: Exception Generation
 
-    // TODO: Wrap *pre-created* IOException in DynRouteResolutionFailureException
-    // (extends DynException?) extends IOException
-    // -> generates new stack trace
+    public static class DynRouteResolutionFailureException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        private DynRouteResolutionFailureException(Exception inner) {
+            super(inner);
+        }
+    }
+
     public void throwException() throws IOException {
         if (ex instanceof IOException)
-            throw (IOException) ex;
+            throw new DynRouteResolutionFailureException(ex);
         if (ex instanceof RuntimeException)
-            throw (RuntimeException) ex;
+            throw new DynRouteResolutionFailureException(ex);
         if (ex == null)
             return;
 

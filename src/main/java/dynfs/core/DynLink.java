@@ -2,8 +2,6 @@ package dynfs.core;
 
 import java.io.IOException;
 
-import dynfs.core.path.DynRoute;
-
 public abstract class DynLink<Space extends DynSpace<Space>, Node extends DynLink<Space, Node>>
         extends DynNode<Space, Node> {
 

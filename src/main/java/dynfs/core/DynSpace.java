@@ -4,15 +4,17 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.ClosedFileSystemException;
 import java.nio.file.FileStore;
+import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.attribute.FileStoreAttributeView;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-import dynfs.core.path.DynRoute;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore implements Closeable {
-
-    // TODO: Lazy size calculation interface
 
     //
     // Static Support: Size Validation
@@ -81,25 +83,66 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
     //
     // State: Status
 
-    // TODO: 3-phase w/ sync
-    // TODO: Does DynFileSystem really need 3-phase w/ sync if this class employs
-    // 3-phase sync?
+    private static final Status INITIAL_STATUS = Status.ACTIVE;
 
-    private boolean isClosed;
+    private final Lock STATUS_LOCK = new ReentrantLock();
+    private Status status = INITIAL_STATUS;
+
+    public static enum Status {
+        ACTIVE(false),
+        TERMINATING(true),
+        CLOSED(true),
+        ERROR_WHILE_TERMINATING(true);
+
+        private final boolean isClosed;
+
+        private Status(boolean isClosed) {
+            this.isClosed = isClosed;
+        }
+
+        public boolean isClosed() {
+            return isClosed;
+        }
+
+        public boolean isOpen() {
+            return !isClosed();
+        }
+    }
+
+    public final Status status() {
+        return status;
+    }
 
     public final boolean isClosed() {
-        return isClosed;
+        return status().isClosed();
     }
 
     public final void throwIfClosed() throws IOException {
-        if (isClosed)
+        if (isClosed())
             throw new ClosedFileSystemException();
     }
 
     @Override
     public final void close() throws IOException {
-        closeImpl();
-        isClosed = true;
+        if (status != Status.CLOSED) {
+            STATUS_LOCK.lock();
+            try {
+                if (status != Status.CLOSED) {
+                    status = Status.TERMINATING;
+                    try {
+                        closeImpl();
+                    } catch (IOException | RuntimeException ex) {
+                        status = Status.ERROR_WHILE_TERMINATING;
+                    } finally {
+                        if (status == Status.TERMINATING) {
+                            status = Status.CLOSED;
+                        }
+                    }
+                }
+            } finally {
+                STATUS_LOCK.unlock();
+            }
+        }
     }
 
     protected abstract void closeImpl() throws IOException;
@@ -117,8 +160,6 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
 
         this.totalSpace = totalSpace;
         this.allocatedSpace = usedSpace;
-
-        this.isClosed = false;
     }
 
     //
@@ -130,36 +171,57 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
     }
 
     //
-    // Interface Implementation Stub: DynSpace Properties
+    // Interface Stub: DynSpace Name
 
-    // TODO: Review API specification for name()
     @Override
     public abstract String name();
 
-    @Override
-    public abstract String type();
+    //
+    // Interface Stub: DynSpace Type
 
-    // TODO: API Clarification - Is isReadOnly allowed to change?
+    @Override
+    public final String type() {
+        return getType().toTypeString();
+    }
+
+    public abstract DynSpaceType getType();
+
+    //
+    // Interface Stub: DynSpace Read-Only Property
+
     @Override
     public abstract boolean isReadOnly();
 
     //
-    // Implementation Stub: DynSpace Attributes
-
-    // TODO: Concrete implementation to get name?
-    // TODO: Concrete implementation to get default DynSpaceAttributes
-    // create default DynSpace attributes class
-    // abstract impl to get SpecialAttributes
-    // TODO: Rename DynAttributes to DynNodeAttributes
+    // Interface Implementation: DynSpace Attributes
 
     @Override
-    public abstract <V extends FileStoreAttributeView> V getFileStoreAttributeView(Class<V> type);
+    public final <V extends FileStoreAttributeView> V getFileStoreAttributeView(Class<V> type) {
+        if (!type.isAssignableFrom(DynSpaceAttributeView.class))
+            return null;
+
+        DynSpaceAttributeView attributeView = new DynSpaceAttributeView(this);
+
+        // If (type.isAssignableFrom(DynSpaceAttributeView.class)), then attributeView
+        // is of type V.
+        @SuppressWarnings("unchecked")
+        V result = (V) attributeView;
+
+        return result;
+    }
 
     @Override
-    public abstract Object getAttribute(String attribute) throws IOException;
+    public final Object getAttribute(String attribute) throws IOException {
+        switch (attribute) {
+            case "name":
+                return name();
+        }
+
+        throw new UnsupportedOperationException(attribute + " is not a DynSpace attribute");
+    }
 
     //
-    // Implementation Stub: Supported File Attribute Views
+    // Interface Implementation: Supported File Attribute Views
 
     @Override
     public final boolean supportsFileAttributeView(Class<? extends FileAttributeView> type) {
@@ -171,12 +233,31 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
         return supportedFileAttributeViewsByName().contains(name);
     }
 
-    // TODO: Concrete implementation to get default DynFileAttributesView types
-    // union with SpecialAttributeViews
+    public final Set<Class<? extends FileAttributeView>> supportedFileAttributeViews() {
+        return ImmutableSet.of(DynNodeFileAttributeView.class, BasicFileAttributeView.class);
+    }
 
-    public abstract Set<Class<? extends FileAttributeView>> supportedFileAttributeViews();
+    public final Set<String> supportedFileAttributeViewsByName() {
+        return ImmutableSet.of(DynNodeFileAttributeView.FILE_ATTRIBUTE_VIEW_NAME, "basic");
+    }
 
-    public abstract Set<String> supportedFileAttributeViewsByName();
+    //
+    // Interface Default: Supported DynNode Attribute Views
+
+    public final void checkSupportsDynNodeAttributeViews(Set<DynNodeAttribute.View> views)
+            throws UnsupportedOperationException {
+        Set<DynNodeAttribute.View> unsupportedViews = Sets.difference(views, supportedDynNodeAttributeViews());
+        if (!unsupportedViews.isEmpty())
+            throw new UnsupportedOperationException("Unsupported DynNode Attribute Views: " + unsupportedViews);
+    }
+
+    public final Set<DynNodeAttribute.View> supportedDynNodeAttributeViews() {
+        return Sets.union(supportedExtraDynNodeAttributeViews(), ImmutableSet.of(DynNodeAttribute.Base.VIEW));
+    }
+
+    protected Set<DynNodeAttribute.View> supportedExtraDynNodeAttributeViews() {
+        return ImmutableSet.of();
+    }
 
     //
     // Interface Implementation Stub: Root Directory

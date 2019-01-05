@@ -2,8 +2,6 @@ package dynfs.core;
 
 import java.io.IOException;
 
-import dynfs.core.io.DynFileIO;
-
 public abstract class DynFile<Space extends DynSpace<Space>, Node extends DynFile<Space, Node>>
         extends DynNode<Space, Node> {
 
@@ -24,16 +22,8 @@ public abstract class DynFile<Space extends DynSpace<Space>, Node extends DynFil
     }
 
     //
-    // Implementation Stub: DynFile Size
-
-    // TODO: concrete implementation of package-private setSize + protected abstract
-    // ensureCapacity / limitCapacity?
-    public abstract void setSize(long newSize) throws IOException;
-
-    //
     // Implementation Stub: DynFile I/O
 
-    // TODO: Change to protected
-    public abstract DynFileIO<Space, Node> getIOInterface() throws IOException;
+    protected abstract DynFileIO getIOInterface() throws IOException;
 
 }

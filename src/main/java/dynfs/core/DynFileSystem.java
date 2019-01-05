@@ -1,33 +1,19 @@
 package dynfs.core;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.file.DirectoryStream;
-import java.nio.file.DirectoryStream.Filter;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
-import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.WatchEvent.Kind;
 import java.nio.file.WatchEvent.Modifier;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
-import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.UserPrincipalLookupService;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
-import dynfs.core.io.DynByteChannel;
-import dynfs.core.io.DynDirectoryStream;
-import dynfs.core.options.OpenOptions;
-import dynfs.core.path.DynPath;
-import dynfs.core.path.DynRoute;
 import dynfs.core.store.DynSpaceFactory;
 import dynfs.core.store.DynSpaceLoader;
 
@@ -64,59 +50,14 @@ public final class DynFileSystem<Space extends DynSpace<Space>> extends FileSyst
     //
     // State: Status
 
-    private static final Status INITIAL_STATUS = Status.ACTIVE;
-
-    private final Lock STATUS_LOCK = new ReentrantLock();
-    private Status status = INITIAL_STATUS;
-
-    public static enum Status {
-        ACTIVE, TERMINATION, CLOSED, ERROR_ON_CLOSE;
-
-        public boolean isOpen() {
-            return !isClosed();
-        }
-
-        public boolean isClosed() {
-            return this == Status.TERMINATION || this == CLOSED;
-        }
-    }
-
-    public Status status() {
-        return status;
-    }
-
     @Override
     public boolean isOpen() {
-        return status.isOpen();
+        return getStore().status().isOpen();
     }
 
     @Override
     public void close() throws IOException {
-        if (status != Status.CLOSED) {
-            STATUS_LOCK.lock();
-            try {
-                if (status != Status.CLOSED) {
-                    closeImpl();
-                }
-            } finally {
-                STATUS_LOCK.unlock();
-            }
-        }
-    }
-
-    private void closeImpl() throws IOException {
-        status = Status.TERMINATION;
-
-        try {
-            getStore().close();
-        } catch (IOException | RuntimeException ex) {
-            // TODO: Design Review - Should this distinction be made?
-            status = Status.ERROR_ON_CLOSE;
-        } finally {
-            if (status == Status.TERMINATION) {
-                status = Status.CLOSED;
-            }
-        }
+        getStore().close();
     }
 
     //
@@ -206,6 +147,8 @@ public final class DynFileSystem<Space extends DynSpace<Space>> extends FileSyst
     //
     // Interface: WatchService Support (Unsupported)
 
+    // NOTE: Check access control if implemented
+
     @Override
     public WatchService newWatchService() throws IOException {
         // NOTE: Future feature?
@@ -234,49 +177,6 @@ public final class DynFileSystem<Space extends DynSpace<Space>> extends FileSyst
 
     public final ResolutionResult<Space> resolve(DynRoute route, boolean followLinks) throws IOException {
         return getStore().resolve(route, followLinks);
-    }
-
-    //
-    // Interface Implementation: DynFileSystemProvider I/O
-
-    // TODO: Move this section into DynFileSystemProviderIO
-
-    // Byte Channel
-    public SeekableByteChannel newByteChannel(DynRoute route,
-            OpenOptions openOptions,
-            FileAttribute<?>... attrs)
-            throws IOException {
-        // TODO: Check access control
-
-        ResolutionResult<Space> resolution = store.resolve(route);
-        DynNode<Space, ?> node = resolution.testExistenceForCreation();
-
-        if (node != null && !(node instanceof DynFile)) {
-            // Non-file exists at route
-            throw new FileAlreadyExistsException(route.toString(), null, "Non-file already exists");
-        }
-        DynFile<Space, ?> file = (DynFile<Space, ?>) node;
-
-        if (file != null && openOptions.createNew)
-            throw new FileAlreadyExistsException(route.toString());
-        if (file == null && !(openOptions.create || openOptions.createNew))
-            throw new FileNotFoundException(route.toString());
-
-        if (file == null) {
-            file = ((DynDirectory<Space, ?>) resolution.node()).createFileImpl(route.getFileName(),
-                    attrs);
-        }
-
-        return new DynByteChannel<>(file, openOptions);
-    }
-
-    // Directory Stream
-    public DirectoryStream<Path> newDirectoryStream(DynRoute dir, Filter<? super Path> filter) throws IOException {
-        DynNode<Space, ?> node = store.resolve(dir).testExistence();
-        if (!(node instanceof DynDirectory))
-            throw new NotDirectoryException(dir.toString());
-
-        return new DynDirectoryStream<Space>((DynDirectory<Space, ?>) node, filter);
     }
 
 }

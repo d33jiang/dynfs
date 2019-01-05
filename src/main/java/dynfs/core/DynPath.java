@@ -1,4 +1,4 @@
-package dynfs.core.path;
+package dynfs.core;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,9 +14,6 @@ import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-
-import dynfs.core.DynFileSystem;
-import dynfs.core.DynNode;
 
 public final class DynPath implements Path {
 
@@ -62,18 +59,15 @@ public final class DynPath implements Path {
         this.route = route;
     }
 
-    // TODO: package-private!
-    public static DynPath newPathFromUri(DynFileSystem<?> fs, URI uri) {
+    static DynPath newPathFromUri(DynFileSystem<?> fs, URI uri) {
         return new DynPath(fs, uri.getHost(), DynRoute.fromUri(uri));
     }
 
     public static DynPath newPath(DynFileSystem<?> fs, String first, String... more) {
-        if (first == null)
-            throw new NullPointerException("first is null");
         if (more == null)
             throw new NullPointerException("more is null");
 
-        return new DynPath(fs, fs.domain(), DynRoute.fromPathNames(first, more));
+        return new DynPath(fs, fs.domain(), DynRoute.fromRouteNames(first, more));
     }
 
     //
@@ -186,13 +180,13 @@ public final class DynPath implements Path {
         if (other instanceof DynPath)
             return resolve((DynPath) other);
 
-        List<String> newPath = new ArrayList<>(route.getNameCount() + other.getNameCount());
-        newPath.addAll(route.path());
+        List<String> newRoute = new ArrayList<>(route.getNameCount() + other.getNameCount());
+        newRoute.addAll(route.names());
         for (Path name : other) {
-            newPath.add(name.toString());
+            newRoute.add(name.toString());
         }
 
-        return derivePath(DynRoute.fromPathNameList(isAbsolute(), newPath));
+        return derivePath(DynRoute.fromRouteNameList(isAbsolute(), newRoute));
     }
 
     @Override

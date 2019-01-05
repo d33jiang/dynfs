@@ -6,17 +6,19 @@ import java.nio.file.attribute.FileAttribute;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang3.NotImplementedException;
 
 import dynfs.core.DynDirectory;
 import dynfs.core.DynFile;
 import dynfs.core.DynNode;
+import dynfs.core.DynNodeAttribute;
 
 public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
 
     //
-    // Field: Children
+    // State: Children
 
     private final Map<String, DynNode<LMSpace, ?>> children = new HashMap<>();
 
@@ -34,7 +36,63 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
     }
 
     //
-    // Implementation: Iterable<DynNode<>>
+    // Interface Implementation: DynNode Size
+
+    @Override
+    public long readSize() {
+        return 0;
+    }
+
+    //
+    // Implementation: I/O, Node Equality Check
+
+    @Override
+    protected boolean isSameFile(DynNode<LMSpace, ?> other) {
+        return this == other;
+    }
+
+    //
+    // Implementation: I/O, Node Deletion
+
+    @Override
+    protected void deleteImpl() throws IOException {
+        // TODO: Temporary non-compliance w/ API
+        for (DynNode<LMSpace, ?> n : this) {
+            n.delete();
+        }
+    }
+
+    //
+    // Implementation: I/O, Child Operations
+
+    @Override
+    protected DynFile<LMSpace, ?> createFileImpl(String name, FileAttribute<?>... attrs) throws IOException {
+        LMFile file = new LMFile(getStore(), this, name);
+        children.put(name, file);
+        return file;
+    }
+
+    @Override
+    protected DynDirectory<LMSpace, ?> createDirectoryImpl(String name, FileAttribute<?>... attrs) throws IOException {
+        LMDirectory file = new LMDirectory(getStore(), this, name);
+        children.put(name, file);
+        return file;
+    }
+
+    @Override
+    protected void deleteChildImpl(String name, DynNode<LMSpace, ?> node) throws IOException {
+        if (!children.remove(name, node))
+            throw new FileNotFoundException(node.getRouteString());
+    }
+
+    @Override
+    protected void copyImpl(DynNode<LMSpace, ?> src, String dstName, boolean deleteSrc) throws IOException {
+        // TODO: Auto-generated method stub
+        throw new NotImplementedException("Method stub");
+    }
+
+    //
+    // Implementation: Iterable<DynNode>
 
     @Override
     public Iterator<DynNode<LMSpace, ?>> iterator() {
@@ -47,6 +105,27 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
     @Override
     protected DynNode<LMSpace, ?> resolveChild(String name) throws IOException {
         return children.get(name);
+    }
+
+    //
+    // Implementation: Attribute I/O
+
+    @Override
+    protected Map<DynNodeAttribute, Object> readAttributesImpl(Set<DynNodeAttribute> keys) throws IOException {
+        // TODO: Auto-generated method stub
+        throw new NotImplementedException("Method stub");
+    }
+
+    @Override
+    protected Map<DynNodeAttribute, Object> readAllAttributes() throws IOException {
+        // TODO: Auto-generated method stub
+        throw new NotImplementedException("Method stub");
+    }
+
+    @Override
+    protected Map<String, Object> writeAttributesImpl(Map<String, ?> newMappings) throws IOException {
+        // TODO: Auto-generated method stub
+        throw new NotImplementedException("Method stub");
     }
 
     //
@@ -91,57 +170,6 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
         public String toString() {
             return lastDump;
         }
-    }
-
-    //
-    // Interface: Equals Node
-
-    @Override
-    public boolean isSameFile(DynNode<LMSpace, ?> other) {
-        return this == other;
-    }
-
-    //
-    // Interface: I/O
-
-    @Override
-    public DynFile<LMSpace, ?> createFileImpl(String name, FileAttribute<?>... attrs) throws IOException {
-        LMFile file = new LMFile(getStore(), this, name);
-        children.put(name, file);
-        return file;
-    }
-
-    @Override
-    public DynDirectory<LMSpace, ?> createDirectoryImpl(String name, FileAttribute<?>... attrs) throws IOException {
-        LMDirectory file = new LMDirectory(getStore(), this, name);
-        children.put(name, file);
-        return file;
-    }
-
-    @Override
-    public void copyImpl(DynNode<LMSpace, ?> src, String dstName, boolean deleteSrc) throws IOException {
-        // TODO: Auto-generated method stub
-        throw new NotImplementedException("Method stub");
-    }
-
-    @Override
-    protected void deleteChildImpl(String name, DynNode<LMSpace, ?> node) throws IOException {
-        if (!children.remove(name, node))
-            throw new FileNotFoundException(node.getRouteString());
-    }
-
-    @Override
-    protected void deleteImpl() throws IOException {
-        // TODO: Temporary non-compliance w/ API
-        for (DynNode<LMSpace, ?> n : this) {
-            n.delete();
-        }
-    }
-
-    @Override
-    protected void setAttributeImpl(String attribute, Object value) throws IOException {
-        // TODO: Auto-generated method stub
-        throw new NotImplementedException("Method stub");
     }
 
 }

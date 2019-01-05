@@ -2,7 +2,6 @@ package dynfs.dynlm;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -11,27 +10,25 @@ import java.util.TreeMap;
 
 import dynfs.template.Allocator;
 
-public class BlockList extends BlockLike {
+public final class BlockList extends BlockLike {
 
     //
-    // Helper: Block Size Calculation
+    // Configuration: Allocator
 
-    private static int __calculateConstructorArgumentSize(Block[] args) {
-        return Arrays.stream(args).mapToInt(Block::capacity).sum();
-    }
+    private final Allocator<LMFile, Block> allocator;
 
     //
-    // Field: Internal Data
+    // State: Nested Blocks
 
-    private final Allocator<LMFile, Block> mem;
-    private final LMFile file;
     private final NavigableMap<Integer, Block> nested;
 
-    public BlockList(Allocator<LMFile, Block> mem, LMFile file, Block... nested) throws IOException {
-        super(__calculateConstructorArgumentSize(nested));
+    //
+    // Construction
 
-        this.mem = mem;
-        this.file = file;
+    BlockList(Allocator<LMFile, Block> allocator, LMFile owner, Block... nested) throws IOException {
+        super(nested.length * Block.BLOCK_SIZE, owner);
+
+        this.allocator = allocator;
         this.nested = new TreeMap<>();
 
         int offset = 0;
@@ -49,7 +46,7 @@ public class BlockList extends BlockLike {
         int numNewBlocks = Block.numBlocks(minCapacity - capacity());
         int offset = capacity();
 
-        Iterable<Block> allocatedBlocks = mem.allocate(file, numNewBlocks);
+        Iterable<Block> allocatedBlocks = allocator.allocate(getOwner(), numNewBlocks);
         for (Block b : allocatedBlocks) {
             nested.put(offset, b);
             offset += b.capacity();
@@ -64,13 +61,44 @@ public class BlockList extends BlockLike {
         List<Block> freedBlocks = new ArrayList<>(toBeFreed);
 
         toBeFreed.clear();
-        mem.free(file, freedBlocks);
+        allocator.free(getOwner(), freedBlocks);
 
-        return nested.lastKey() + nested.lastEntry().getValue().capacity(); // TODO: getEndIndex
+        return calculateTrueCapacity();
+    }
+
+    private int calculateTrueCapacity() {
+        Map.Entry<Integer, Block> lastBlock = nested.lastEntry();
+        return lastBlock.getKey() + lastBlock.getValue().capacity();
     }
 
     //
     // Implementation: I/O
+
+    @Override
+    public void uncheckedRead(int off, byte[] dst, int dstOff, int len) {
+        __uncheckedTransfer(off, dst, dstOff, len, true);
+    }
+
+    @Override
+    public void uncheckedWrite(int off, byte[] src, int srcOff, int len) {
+        __uncheckedTransfer(off, src, srcOff, len, false);
+    }
+
+    @Override
+    public byte uncheckedReadByte(int off) {
+        Map.Entry<Integer, Block> block = uncheckedGetChildBlock(off);
+        int offsetWithinBlock = off - block.getKey();
+
+        return block.getValue().uncheckedReadByte(offsetWithinBlock);
+    }
+
+    @Override
+    public void uncheckedWriteByte(int off, byte val) {
+        Map.Entry<Integer, Block> block = uncheckedGetChildBlock(off);
+        int offsetWithinBlock = off - block.getKey();
+
+        block.getValue().uncheckedWriteByte(offsetWithinBlock, val);
+    }
 
     private Map.Entry<Integer, Block> uncheckedGetChildBlock(int off) {
         return nested.floorEntry(off);
@@ -112,32 +140,6 @@ public class BlockList extends BlockLike {
                 }
             }
         }
-    }
-
-    @Override
-    public void uncheckedRead(int off, byte[] dst, int dstOff, int len) {
-        __uncheckedTransfer(off, dst, dstOff, len, true);
-    }
-
-    @Override
-    public void uncheckedWrite(int off, byte[] src, int srcOff, int len) {
-        __uncheckedTransfer(off, src, srcOff, len, false);
-    }
-
-    @Override
-    public byte uncheckedReadByte(int off) {
-        Map.Entry<Integer, Block> block = uncheckedGetChildBlock(off);
-        int offsetWithinBlock = off - block.getKey();
-
-        return block.getValue().uncheckedReadByte(offsetWithinBlock);
-    }
-
-    @Override
-    public void uncheckedWriteByte(int off, byte val) {
-        Map.Entry<Integer, Block> block = uncheckedGetChildBlock(off);
-        int offsetWithinBlock = off - block.getKey();
-
-        block.getValue().uncheckedWriteByte(offsetWithinBlock, val);
     }
 
 }

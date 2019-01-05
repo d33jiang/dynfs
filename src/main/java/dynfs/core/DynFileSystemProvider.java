@@ -25,13 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import dynfs.core.io.DynFileSystemIO;
 import dynfs.core.options.AccessModes;
 import dynfs.core.options.CopyOptions;
 import dynfs.core.options.LinkOptions;
 import dynfs.core.options.OpenOptions;
-import dynfs.core.path.DynPath;
-import dynfs.core.path.DynRoute;
 import dynfs.core.store.DynSpaceFactory;
 import dynfs.core.store.DynSpaceLoader;
 
@@ -41,9 +38,6 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     // TODO: Interface Specification Adherence (project-wide)
     // TODO: Design WeakReference cut to give control over memory management to impl
     // TODO: Atomic I/O
-    // TODO: Builder / Prototype pattern for Options
-    // TODO: Cut down on type parameters where they aren't useful (i.e. within
-    // internal implementations)
     // TODO: Standardize diamonds, implicit diamonds, explicit type arguments
     // TODO: Verify static method invocations all occur through class name
     // TODO: In all non-final classes, all non-private methods that should not be
@@ -52,6 +46,7 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     // during runtime; might be retained beyond compilation?
     // TODO: Centralized (AccessControlClass).checkRead(), .checkCopy(),
     // .checkWrite(), etc.
+    // -> Beware of read-only DynSpace instances
 
     //
     // Constant: URI Scheme
@@ -278,35 +273,37 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     @Override
     public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs)
             throws IOException {
-        return DynFileSystemIO.newByteChannel(getFileSystemFromPath(path), getDynRoute(path),
+        return DynFileSystemProviderIO.newByteChannel(getFileSystemFromPath(path), getDynRoute(path),
                 OpenOptions.parse(options),
                 attrs);
     }
 
     @Override
     public DirectoryStream<Path> newDirectoryStream(Path dir, Filter<? super Path> filter) throws IOException {
-        return DynFileSystemIO.newDirectoryStream(getFileSystemFromPath(dir), getDynRoute(dir), filter);
+        return DynFileSystemProviderIO.newDirectoryStream(getFileSystemFromPath(dir), getDynRoute(dir), filter);
     }
 
     @Override
     public void createDirectory(Path dir, FileAttribute<?>... attrs) throws IOException {
-        DynFileSystemIO.createDirectory(getFileSystemFromPath(dir), getDynRoute(dir), attrs);
+        DynFileSystemProviderIO.createDirectory(getFileSystemFromPath(dir), getDynRoute(dir), attrs);
     }
 
     @Override
     public void delete(Path path) throws IOException {
-        DynFileSystemIO.delete(getFileSystemFromPath(path), getDynRoute(path));
+        DynFileSystemProviderIO.delete(getFileSystemFromPath(path), getDynRoute(path));
     }
 
     @Override
     public void copy(Path src, Path dst, CopyOption... options) throws IOException {
-        DynFileSystemIO.copy(getFileSystemFromPath(src), getFileSystemFromPath(dst), getDynRoute(src), getDynRoute(dst),
+        DynFileSystemProviderIO.copy(getFileSystemFromPath(src), getFileSystemFromPath(dst), getDynRoute(src),
+                getDynRoute(dst),
                 CopyOptions.parse(options));
     }
 
     @Override
     public void move(Path src, Path dst, CopyOption... options) throws IOException {
-        DynFileSystemIO.move(getFileSystemFromPath(src), getFileSystemFromPath(dst), getDynRoute(src), getDynRoute(dst),
+        DynFileSystemProviderIO.move(getFileSystemFromPath(src), getFileSystemFromPath(dst), getDynRoute(src),
+                getDynRoute(dst),
                 CopyOptions.parse(options));
     }
 
@@ -316,12 +313,12 @@ public final class DynFileSystemProvider extends FileSystemProvider {
         if (!fs.equals(getFileSystemFromPath(path2)))
             return false;
 
-        return DynFileSystemIO.isSameFile(fs, getDynRoute(path1), getDynRoute(path2));
+        return DynFileSystemProviderIO.isSameFile(fs, getDynRoute(path1), getDynRoute(path2));
     }
 
     @Override
     public boolean isHidden(Path path) throws IOException {
-        return DynFileSystemIO.isHidden(getFileSystemFromPath(path), getDynRoute(path));
+        return DynFileSystemProviderIO.isHidden(getFileSystemFromPath(path), getDynRoute(path));
     }
 
     @Override
@@ -331,31 +328,31 @@ public final class DynFileSystemProvider extends FileSystemProvider {
 
     @Override
     public void checkAccess(Path path, AccessMode... modes) throws IOException {
-        DynFileSystemIO.checkAccess(getFileSystemFromPath(path), getDynRoute(path), AccessModes.parse(modes));
+        DynFileSystemProviderIO.checkAccess(getFileSystemFromPath(path), getDynRoute(path), AccessModes.parse(modes));
     }
 
     @Override
     public <V extends FileAttributeView> V getFileAttributeView(Path path, Class<V> type, LinkOption... options) {
-        return DynFileSystemIO.getFileAttributeView(getFileSystemFromPath(path), getDynRoute(path), type,
+        return DynFileSystemProviderIO.getFileAttributeView(getFileSystemFromPath(path), getDynRoute(path), type,
                 LinkOptions.parse(options));
     }
 
     @Override
     public <A extends BasicFileAttributes> A readAttributes(Path path, Class<A> type, LinkOption... options)
             throws IOException {
-        return DynFileSystemIO.readAttributes(getFileSystemFromPath(path), getDynRoute(path), type,
+        return DynFileSystemProviderIO.readAttributes(getFileSystemFromPath(path), getDynRoute(path), type,
                 LinkOptions.parse(options));
     }
 
     @Override
     public Map<String, Object> readAttributes(Path path, String attributes, LinkOption... options) throws IOException {
-        return DynFileSystemIO.readAttributes(getFileSystemFromPath(path), getDynRoute(path), attributes,
+        return DynFileSystemProviderIO.readAttributes(getFileSystemFromPath(path), getDynRoute(path), attributes,
                 LinkOptions.parse(options));
     }
 
     @Override
     public void setAttribute(Path path, String attribute, Object value, LinkOption... options) throws IOException {
-        DynFileSystemIO.setAttribute(getFileSystemFromPath(path), getDynRoute(path), attribute, value,
+        DynFileSystemProviderIO.setAttribute(getFileSystemFromPath(path), getDynRoute(path), attribute, value,
                 LinkOptions.parse(options));
     }
 

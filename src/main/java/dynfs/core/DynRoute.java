@@ -1,4 +1,4 @@
-package dynfs.core.path;
+package dynfs.core;
 
 import java.io.IOException;
 import java.net.URI;
@@ -16,16 +16,9 @@ import java.util.stream.Stream;
 
 import com.google.common.collect.ImmutableList;
 
-import dynfs.core.DynFileSystem;
-import dynfs.core.DynFileSystemProvider;
-import dynfs.core.DynNode;
-import dynfs.core.DynSpace;
-import dynfs.core.ResolutionResult;
 import dynfs.core.options.LinkOptions;
 
 public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
-
-    // TODO: null-checks?
 
     //
     // Constant: Root Path String
@@ -53,17 +46,16 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     }
 
     //
-    // Configuration: Path, i.e. Route Names
+    // Configuration: Route Names
 
-    // TODO: Change to "names"?
-    private final List<String> path;
+    private final List<String> names;
 
-    public List<String> path() {
-        return path;
+    public List<String> names() {
+        return names;
     }
 
     public String getName(int index) {
-        return path.get(index);
+        return names.get(index);
     }
 
     public String getFileName() {
@@ -95,55 +87,54 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     //
     // Construction: Factory
 
-    private DynRoute(List<String> path) {
-        this(true, path);
+    private DynRoute(List<String> names) {
+        this(true, names);
     }
 
-    private DynRoute(boolean isAbsolute, List<String> path) {
-        this(isAbsolute, path, null);
+    private DynRoute(boolean isAbsolute, List<String> names) {
+        this(isAbsolute, names, null);
     }
 
-    private DynRoute(boolean isAbsolute, List<String> path, String query) {
-        this(isAbsolute, path, query, null);
+    private DynRoute(boolean isAbsolute, List<String> names, String query) {
+        this(isAbsolute, names, query, null);
     }
 
-    private DynRoute(boolean isAbsolute, List<String> path, String query, String fragment) {
-        if (path == null)
-            path = ImmutableList.of();
+    private DynRoute(boolean isAbsolute, List<String> names, String query, String fragment) {
+        if (names == null)
+            names = ImmutableList.of();
 
         this.isAbsolute = isAbsolute;
-        this.path = Collections.unmodifiableList(path);
+        this.names = Collections.unmodifiableList(names);
         this.query = query;
         this.fragment = fragment;
     }
 
     private static List<String> decomposePathString(String first, String... more) {
+        // TODO: API Clarification - Should null path components be removed?
         Stream<String> pathStream = Stream.concat(Stream.<String>builder().add(first).build(), Arrays.stream(more));
         List<String> pathComponents = pathStream.flatMap(ps -> Arrays.stream(ps.split(PATH_SEPARATOR)))
                 .collect(Collectors.toCollection(ArrayList<String>::new));
         return pathComponents;
     }
 
-    static DynRoute fromPathNames(String first, String... more) {
-        // NOTE: null-check!
+    static DynRoute fromRouteNames(String first, String... more) {
+        // TODO: API Clarification - Should null path components be removed?
         boolean isAbsolute = first.startsWith(PATH_SEPARATOR);
         if (isAbsolute) {
             first = first.substring(1);
         }
 
-        List<String> path = decomposePathString(first, more);
-        return new DynRoute(isAbsolute, path);
+        List<String> routeNames = decomposePathString(first, more);
+        return new DynRoute(isAbsolute, routeNames);
     }
 
     static DynRoute fromUri(URI uri) {
-        List<String> path = decomposePathString(uri.getPath());
-        return new DynRoute(true, path, uri.getQuery(), uri.getFragment());
+        List<String> routeNames = decomposePathString(uri.getPath());
+        return new DynRoute(true, routeNames, uri.getQuery(), uri.getFragment());
     }
 
-    // TODO: package-private?
-    public static DynRoute fromPathNameList(boolean isAbsolute, List<String> path) {
-        // NOTE: null-check?
-        return new DynRoute(isAbsolute, new ArrayList<>(path));
+    static DynRoute fromRouteNameList(boolean isAbsolute, List<String> routeNames) {
+        return new DynRoute(isAbsolute, new ArrayList<>(routeNames));
     }
 
     //
@@ -157,8 +148,8 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         if (isAbsolute() != other.isAbsolute())
             return isAbsolute() ? -1 : 1;
 
-        List<String> tp = path;
-        List<String> op = other.path;
+        List<String> tp = names;
+        List<String> op = other.names;
 
         for (int i = 0; i < tp.size() && i < op.size(); i++) {
             if (!tp.get(i).equals(op.get(i)))
@@ -173,21 +164,21 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
 
     @Override
     public String toString() {
-        return path.stream().collect(Collectors.joining(isAbsolute ? ROOT_PATH_STRING : "", PATH_SEPARATOR, ""));
+        return names.stream().collect(Collectors.joining(isAbsolute ? ROOT_PATH_STRING : "", PATH_SEPARATOR, ""));
     }
 
     //
     // Interface: Name Count
 
     public int getNameCount() {
-        return path.size();
+        return names.size();
     }
 
     //
     // Support: Route Derivation
 
-    private DynRoute deriveRoute(boolean isAbsolute, List<String> path) {
-        return new DynRoute(isAbsolute, path, query(), fragment());
+    private DynRoute deriveRoute(boolean isAbsolute, List<String> routeNames) {
+        return new DynRoute(isAbsolute, routeNames, query(), fragment());
     }
 
     //
@@ -210,7 +201,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     }
 
     private DynRoute subrouteImpl(int beginIndex, int endIndex, boolean isAbsolute) {
-        return deriveRoute(isAbsolute, path.subList(beginIndex, endIndex));
+        return deriveRoute(isAbsolute, names.subList(beginIndex, endIndex));
     }
 
     //
@@ -275,8 +266,8 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         if (getNameCount() < other.getNameCount())
             return false;
 
-        List<String> tp = path.subList(0, other.getNameCount());
-        List<String> op = other.path;
+        List<String> tp = names.subList(0, other.getNameCount());
+        List<String> op = other.names;
 
         return tp.equals(op);
     }
@@ -285,7 +276,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         if (other == null)
             throw new NullPointerException("other is null");
 
-        return startsWith(DynRoute.fromPathNames(other));
+        return startsWith(DynRoute.fromRouteNames(other));
     }
 
     //
@@ -305,8 +296,8 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
                 return false;
         }
 
-        List<String> tp = path.subList(getNameCount() - other.getNameCount(), getNameCount());
-        List<String> op = other.path;
+        List<String> tp = names.subList(getNameCount() - other.getNameCount(), getNameCount());
+        List<String> op = other.names;
 
         return tp.equals(op);
     }
@@ -315,19 +306,16 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         if (other == null)
             throw new NullPointerException("other is null");
 
-        return endsWith(DynRoute.fromPathNames(other));
+        return endsWith(DynRoute.fromRouteNames(other));
     }
 
     //
     // Implementation: Route Normalization
 
-    // TODO: Cache normalized route if normalize used often enough?
-    // (Re-normalization after small modifications would then be inexpensive)
-    // NOTE: If possible, do not depend on normalize!!!
     public DynRoute normalize() {
-        LinkedList<String> newPath = new LinkedList<>(path);
+        LinkedList<String> newRoute = new LinkedList<>(names);
 
-        ListIterator<String> iter = newPath.listIterator();
+        ListIterator<String> iter = newRoute.listIterator();
         while (iter.hasNext()) {
             String cur = iter.next();
             if (cur.equals(PATH_CURDIR)) {
@@ -347,12 +335,12 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         }
 
         if (isAbsolute()) {
-            while (!newPath.isEmpty() && newPath.getFirst().equals(PATH_PARENT)) {
-                newPath.removeFirst();
+            while (!newRoute.isEmpty() && newRoute.getFirst().equals(PATH_PARENT)) {
+                newRoute.removeFirst();
             }
         }
 
-        return deriveRoute(isAbsolute(), new ArrayList<>(newPath));
+        return deriveRoute(isAbsolute(), new ArrayList<>(newRoute));
     }
 
     //
@@ -363,15 +351,15 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
             return other;
         }
 
-        List<String> newPath = new ArrayList<>(path.size() + other.getNameCount());
-        newPath.addAll(path);
-        newPath.addAll(other.path);
+        List<String> newRoute = new ArrayList<>(names.size() + other.getNameCount());
+        newRoute.addAll(names);
+        newRoute.addAll(other.names);
 
-        return deriveRoute(isAbsolute(), newPath);
+        return deriveRoute(isAbsolute(), newRoute);
     }
 
     public DynRoute resolve(String other) {
-        return resolve(DynRoute.fromPathNames(other));
+        return resolve(DynRoute.fromRouteNames(other));
     }
 
     //
@@ -389,7 +377,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     }
 
     public DynRoute resolveSibling(String other) {
-        return resolveSibling(DynRoute.fromPathNames(other));
+        return resolveSibling(DynRoute.fromRouteNames(other));
     }
 
     //
@@ -415,19 +403,19 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
 
         int numBacktracks = src.getNameCount() - commonNames;
 
-        List<String> relativePath = new LinkedList<>();
+        List<String> relativeRoute = new LinkedList<>();
         for (int i = 0; i < numBacktracks; i++) {
-            relativePath.add(PATH_PARENT);
+            relativeRoute.add(PATH_PARENT);
         }
         for (int i = commonNames; i < dst.getNameCount(); i++) {
-            relativePath.add(dst.getName(i));
+            relativeRoute.add(dst.getName(i));
         }
 
-        return DynRoute.fromPathNameList(false, relativePath);
+        return DynRoute.fromRouteNameList(false, relativeRoute);
     }
 
     public DynRoute relativize(String other) {
-        return relativize(DynRoute.fromPathNames(other));
+        return relativize(DynRoute.fromRouteNames(other));
     }
 
     //
@@ -436,7 +424,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     public URI toUri(String domain) {
         try {
             return new URI(DynFileSystemProvider.URI_SCHEME, domain,
-                    path().stream().collect(Collectors.joining(PATH_SEPARATOR, PATH_SEPARATOR, null)), query(),
+                    names().stream().collect(Collectors.joining(PATH_SEPARATOR, PATH_SEPARATOR, null)), query(),
                     fragment());
         } catch (URISyntaxException ex) {
             throw new IllegalStateException(ex);
@@ -450,7 +438,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         if (isAbsolute()) {
             return this;
         } else {
-            return deriveRoute(true, path);
+            return deriveRoute(true, names);
         }
     }
 
@@ -485,7 +473,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
 
     @Override
     public Iterator<String> iterator() {
-        return path.iterator();
+        return names.iterator();
     }
 
 }

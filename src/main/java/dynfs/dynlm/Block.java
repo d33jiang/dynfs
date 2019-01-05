@@ -11,21 +11,24 @@ public class Block extends BlockLike implements Dumpable {
 
     public static final int BLOCK_SIZE = 4096;
 
-    //
-    // Interface: Block Size Calculation
-
-    public static int numBlocks(int size) {
-        return (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    }
-
-    public static int sizeOfNBlocks(int numBlocks) {
+    // Block Size Calculation
+    public static final int sizeOfNBlocks(int numBlocks) {
         return numBlocks * BLOCK_SIZE;
     }
 
+    // Block Quantity Calculation
+    public static final int numBlocks(int size) {
+        return (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    }
+
     //
-    // Field: Block Management
+    // State: Block Index
 
     private int index;
+
+    //
+    // State: Block Data
+
     private final byte[] data;
 
     //
@@ -39,7 +42,7 @@ public class Block extends BlockLike implements Dumpable {
     }
 
     //
-    // Interface: Index
+    // Package Support: Index
 
     int getIndex() {
         return index;

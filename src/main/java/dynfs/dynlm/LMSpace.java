@@ -1,110 +1,60 @@
 package dynfs.dynlm;
 
 import java.io.IOException;
-import java.nio.file.attribute.BasicFileAttributeView;
-import java.nio.file.attribute.FileAttributeView;
-import java.nio.file.attribute.FileStoreAttributeView;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
 
 import dynfs.core.DynSpace;
+import dynfs.core.DynSpaceType;
+import dynfs.core.DynSpaceType.Locality;
+import dynfs.core.DynSpaceType.Storage;
 
-public class LMSpace extends DynSpace<LMSpace> {
-
-    public static int getIntValue(long v) {
-        if (v > Integer.MAX_VALUE || v < Integer.MIN_VALUE)
-            throw new UnsupportedOperationException("Long values are not supported");
-
-        return (int) v;
-    }
+public final class LMSpace extends DynSpace<LMSpace> {
 
     //
-    // Implementation: DynSpace Properties
+    // Constant: DynSpace Type
 
-    private static final String DS_NAME = "";
-    private static final String DS_TYPE = "local.memory.rw";
-    private static final boolean DS_IS_RO = false;
+    private static final DynSpaceType DS_TYPE = new DynSpaceType(Locality.LOCAL, Storage.MEMORY);
 
     @Override
-    public String name() {
-        return DS_NAME;
-    }
-
-    @Override
-    public String type() {
+    public DynSpaceType getType() {
         return DS_TYPE;
     }
 
+    //
+    // Configuration: DynSpace Name
+
+    private final String name;
+
+    @Override
+    public String name() {
+        return name;
+    }
+
+    //
+    // Configuration: DynSpace Read-Only Property
+
+    private final boolean isReadOnly = false;
+
     @Override
     public boolean isReadOnly() {
-        return DS_IS_RO;
+        return isReadOnly;
     }
 
     //
-    // Implementation: DynSpace Attributes
+    // State: Memory
 
-    @Override
-    public <V extends FileStoreAttributeView> V getFileStoreAttributeView(Class<V> type) {
-        // NOTE: Hack
-        throw new UnsupportedOperationException();
-    }
+    private final BlockMemory memory;
 
-    @Override
-    public Object getAttribute(String attribute) throws IOException {
-        // NOTE: Hack
-        throw new UnsupportedOperationException();
-    }
-
-    //
-    // Implementation: Supported File Attribute Views
-
-    private static final Set<Class<? extends FileAttributeView>> SUPPORTED_FILE_ATTRIBUTE_VIEWS;
-    static {
-        Set<Class<? extends FileAttributeView>> supportedViews = new HashSet<>();
-        supportedViews.add(BasicFileAttributeView.class);
-        SUPPORTED_FILE_ATTRIBUTE_VIEWS = Collections.unmodifiableSet(supportedViews);
-    }
-
-    private static final Set<String> SUPPORTED_FILE_ATTRIBUTE_VIEWS_BY_NAME;
-    static {
-        Set<String> supportedViews = new HashSet<>();
-        supportedViews.add("basic");
-        SUPPORTED_FILE_ATTRIBUTE_VIEWS_BY_NAME = Collections.unmodifiableSet(supportedViews);
-    }
-
-    @Override
-    public Set<Class<? extends FileAttributeView>> supportedFileAttributeViews() {
-        return SUPPORTED_FILE_ATTRIBUTE_VIEWS;
-    }
-
-    @Override
-    public Set<String> supportedFileAttributeViewsByName() {
-        return SUPPORTED_FILE_ATTRIBUTE_VIEWS_BY_NAME;
-    }
-
-    //
-    // Field: Memory Management
-
-    private final LMMemory memory;
-
-    //
-    // Interface: Memory Management
-
-    // TODO: package-private; public for testing
-    public LMMemory getMemory() {
+    // DEBUG: public for testing (change to package-private)
+    public BlockMemory getMemory() {
         return memory;
     }
 
     //
-    // Field: Directory Structure
+    // State: Directory Structure
 
     private LMDirectory root;
 
-    //
-    // Implementation: Root Directory
-
-    // Javac fails to determine that LMDirectory satisfies DirNode
+    // Javac fails to determine that LMDirectory satisfies requirements of DirNode
     @SuppressWarnings("unchecked")
     @Override
     public LMDirectory getRootDirectory() {
@@ -114,12 +64,16 @@ public class LMSpace extends DynSpace<LMSpace> {
     //
     // Construction
 
-    public LMSpace(int totalSpace) throws IOException {
+    public LMSpace(String name, int totalSpace) throws IOException {
         super(totalSpace);
 
-        this.memory = new LMMemory(this::setAllocatedSpace, totalSpace);
+        this.name = name;
+
+        this.memory = new BlockMemory(this::setAllocatedSpace, totalSpace);
         this.root = new LMDirectory(this);
     }
+
+    // TODO: Load from file (future)
 
     //
     // Implementation: Close

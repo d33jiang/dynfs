@@ -1,4 +1,4 @@
-package dynfs.core.io;
+package dynfs.core;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -6,12 +6,9 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Arrays;
 
-import dynfs.core.DynFile;
-import dynfs.core.DynSpace;
 import dynfs.core.options.OpenOptions;
 
-public final class DynByteChannel<Space extends DynSpace<Space>>
-        implements SeekableByteChannel {
+public final class DynByteChannel implements SeekableByteChannel {
 
     // TODO: Implement use of OpenOptions
     // NOTE: OpenOptions.DSYNC is ignored; all data updates are synchronous
@@ -23,7 +20,7 @@ public final class DynByteChannel<Space extends DynSpace<Space>>
     //
     // Configuration: DynFile
 
-    private final DynFile<Space, ?> file;
+    private final DynFile<?, ?> file;
 
     //
     // Configuration: Persistent Channel Settings
@@ -81,8 +78,7 @@ public final class DynByteChannel<Space extends DynSpace<Space>>
     //
     // Construction
 
-    // TODO: should be package-private
-    public DynByteChannel(DynFile<Space, ?> file, OpenOptions options) throws IOException {
+    DynByteChannel(DynFile<?, ?> file, OpenOptions options) throws IOException {
         if (file == null)
             throw new NullPointerException("file must be non-null");
 
@@ -104,7 +100,7 @@ public final class DynByteChannel<Space extends DynSpace<Space>>
     //
     // Support: I/O, File Access
 
-    private DynFileIO<Space, ?> file() throws IOException {
+    private DynFileIO file() throws IOException {
         return file.getIOInterface();
     }
 
@@ -142,7 +138,7 @@ public final class DynByteChannel<Space extends DynSpace<Space>>
     //
     // Interface Implementation: I/O, Read / Write
 
-    // NOTE: cleanse buffer option? (future feature?)
+    // NOTE: cleanse buffer (after every read/write) option? (future feature?)
     private final byte[] buf = new byte[512];
 
     private static int truncateLongToInt(long v) {
@@ -157,8 +153,8 @@ public final class DynByteChannel<Space extends DynSpace<Space>>
     @Override
     public int read(ByteBuffer dst) throws IOException {
         throwIfClosed();
-        // TODO: Mechanism for interrupting read on close? (requires synchronization w/
-        // throwIfClosed)
+        // TODO: Mechanism (flag?) for interrupting read on close? (requires
+        // synchronization w/ throwIfClosed)
 
         long fileSize = file().size();
         int bytesToRead;

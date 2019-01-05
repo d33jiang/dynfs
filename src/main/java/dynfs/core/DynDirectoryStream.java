@@ -1,4 +1,4 @@
-package dynfs.core.io;
+package dynfs.core;
 
 import java.io.IOException;
 import java.nio.file.ClosedDirectoryStreamException;
@@ -6,15 +6,13 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Path;
 import java.util.Iterator;
 
-import dynfs.core.DynDirectory;
-import dynfs.core.DynSpace;
-
 public final class DynDirectoryStream<Space extends DynSpace<Space>>
         implements DirectoryStream<Path> {
 
     // TODO: Organize class implementation
     // TODO: Inner/anonymous class state
     // TODO: Happens-after relationships w/ close()
+    // TODO: Is type parameter Space necessary?
 
     //
     // Configuration: DynDirectory
@@ -62,13 +60,11 @@ public final class DynDirectoryStream<Space extends DynSpace<Space>>
     //
     // Construction
 
-    // TODO: should be package-private
-    public DynDirectoryStream(DynDirectory<Space, ?> dir) {
+    DynDirectoryStream(DynDirectory<Space, ?> dir) {
         this(dir, p -> true);
     }
 
-    // TODO: should be package-private
-    public DynDirectoryStream(DynDirectory<Space, ?> dir, Filter<? super Path> filter) {
+    DynDirectoryStream(DynDirectory<Space, ?> dir, Filter<? super Path> filter) {
         this.dir = dir;
         this.filter = filter;
 

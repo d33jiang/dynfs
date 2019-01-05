@@ -6,23 +6,55 @@ import dynfs.template.BufferLike;
 
 abstract class BlockLike extends BufferLike {
 
+    // TODO: Generic Owner
+
     //
-    // Field: Internal State
+    // State: Capacity
 
     private int capacity;
-    private LMFile owner;
-
-    //
-    // Interface: Capacity
 
     public final int capacity() {
         return capacity;
     }
 
+    //
+    // State: Owner
+
+    private LMFile owner;
+
+    public final LMFile getOwner() {
+        return owner;
+    }
+
+    protected final LMFile setOwner(LMFile newOwner) {
+        LMFile temp = this.owner;
+        this.owner = newOwner;
+        return temp;
+    }
+
+    //
+    // Construction
+
+    protected BlockLike(int initialCapacity) throws IOException {
+        this(initialCapacity, null);
+    }
+
+    protected BlockLike(int initialCapacity, LMFile initialOwner) throws IOException {
+        checkLength("initialCapacity", initialCapacity);
+        this.capacity = initialCapacity;
+        this.owner = initialOwner;
+    }
+
+    //
+    // Interface: Size
+
     @Override
     public final long size() {
         return capacity;
     }
+
+    //
+    // Implementation Stub: Capacity
 
     public final void ensureCapacity(int minCapacity) throws IOException {
         if (minCapacity <= capacity) {
@@ -55,45 +87,18 @@ abstract class BlockLike extends BufferLike {
     protected abstract int trimCapacityImpl(int minCapacity) throws IOException;
 
     //
-    // Interface: Owner
+    // Implementation Stub Redefinition: Integer Offsets in I/O
 
-    public final LMFile getOwner() {
-        return owner;
+    protected static int getIntValue(long v) {
+        if (v > Integer.MAX_VALUE || v < Integer.MIN_VALUE)
+            throw new UnsupportedOperationException("Long values are not supported");
+
+        return (int) v;
     }
-
-    protected final LMFile setOwner(LMFile newOwner) {
-        LMFile temp = this.owner;
-        this.owner = newOwner;
-        return temp;
-    }
-
-    //
-    // Construction
-
-    protected BlockLike(int initialCapacity) throws IOException {
-        this(initialCapacity, null);
-    }
-
-    protected BlockLike(int initialCapacity, LMFile initialOwner) throws IOException {
-        checkLength("initialCapacity", initialCapacity);
-        this.capacity = initialCapacity;
-        this.owner = initialOwner;
-    }
-
-    //
-    // Implementation Stub Redefinition
 
     protected abstract void uncheckedRead(int off, byte[] dst, int dstOff, int len);
 
     protected abstract void uncheckedWrite(int off, byte[] src, int srcOff, int len);
-
-    final void uncheckedTransfer(int off, byte[] other, int otherOff, int len, boolean read) {
-        if (read) {
-            uncheckedRead(off, other, otherOff, len);
-        } else {
-            uncheckedWrite(off, other, otherOff, len);
-        }
-    }
 
     protected abstract byte uncheckedReadByte(int off);
 
@@ -101,22 +106,33 @@ abstract class BlockLike extends BufferLike {
 
     @Override
     protected final void uncheckedRead(long off, byte[] dst, int dstOff, int len) {
-        uncheckedRead(LMSpace.getIntValue(off), dst, dstOff, len);
+        uncheckedRead(getIntValue(off), dst, dstOff, len);
     }
 
     @Override
     protected final void uncheckedWrite(long off, byte[] src, int srcOff, int len) {
-        uncheckedWrite(LMSpace.getIntValue(off), src, srcOff, len);
+        uncheckedWrite(getIntValue(off), src, srcOff, len);
     }
 
     @Override
     protected final byte uncheckedReadByte(long off) {
-        return uncheckedReadByte(LMSpace.getIntValue(off));
+        return uncheckedReadByte(getIntValue(off));
     }
 
     @Override
     protected final void uncheckedWriteByte(long off, byte val) {
-        uncheckedWriteByte(LMSpace.getIntValue(off), val);
+        uncheckedWriteByte(getIntValue(off), val);
+    }
+
+    //
+    // Package Support: Unified Bulk Transfer I/O
+
+    final void uncheckedTransfer(int off, byte[] other, int otherOff, int len, boolean read) {
+        if (read) {
+            uncheckedRead(off, other, otherOff, len);
+        } else {
+            uncheckedWrite(off, other, otherOff, len);
+        }
     }
 
 }
