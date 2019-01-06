@@ -2,6 +2,7 @@ package dynfs.dynlm;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.attribute.FileAttribute;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -56,11 +57,14 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
     // Implementation: I/O, Node Deletion
 
     @Override
+    protected void preDeleteImpl() throws IOException {
+        if (!isEmpty())
+            throw new DirectoryNotEmptyException(getRouteString());
+    }
+
+    @Override
     protected void deleteImpl() throws IOException {
-        // TODO: API Adherence - Temporary non-compliance w/ API
-        for (DynNode<LMSpace, ?> n : this) {
-            n.delete();
-        }
+        // No-op.
     }
 
     //
