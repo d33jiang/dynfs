@@ -4,9 +4,7 @@ import java.io.IOException;
 
 import dynfs.template.BufferLike;
 
-abstract class BlockLike extends BufferLike {
-
-    // TODO: Generic Owner
+abstract class BlockLike<Owner> extends BufferLike {
 
     //
     // State: Capacity
@@ -20,16 +18,16 @@ abstract class BlockLike extends BufferLike {
     //
     // State: Owner
 
-    private LMFile owner;
+    private Owner owner;
 
-    public final LMFile getOwner() {
+    public final Owner getOwner() {
         return owner;
     }
 
-    protected final LMFile setOwner(LMFile newOwner) {
-        LMFile temp = this.owner;
+    protected final Owner setOwner(Owner newOwner) {
+        Owner oldOwner = this.owner;
         this.owner = newOwner;
-        return temp;
+        return oldOwner;
     }
 
     //
@@ -39,7 +37,7 @@ abstract class BlockLike extends BufferLike {
         this(initialCapacity, null);
     }
 
-    protected BlockLike(int initialCapacity, LMFile initialOwner) throws IOException {
+    protected BlockLike(int initialCapacity, Owner initialOwner) throws IOException {
         checkLength("initialCapacity", initialCapacity);
         this.capacity = initialCapacity;
         this.owner = initialOwner;

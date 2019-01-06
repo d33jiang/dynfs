@@ -14,9 +14,7 @@ import java.util.stream.IntStream;
 import dynfs.debug.Dumpable;
 import dynfs.template.Allocator;
 
-public final class BlockMemory implements Allocator<LMFile, Block> {
-
-    // TODO: Rename to BlockMemory<BlockOwner>
+public final class BlockMemory<BlockOwner> implements Allocator<BlockOwner, Block<BlockOwner>> {
 
     //
     // Configuration: Callback, Set Allocated Space
@@ -26,20 +24,21 @@ public final class BlockMemory implements Allocator<LMFile, Block> {
     //
     // State: Blocks
 
-    private Block[] blocks;
+    private Block<BlockOwner>[] blocks;
 
-    private final Map<Integer, LMFile> reservedBlocks;
+    private final Map<Integer, BlockOwner> reservedBlocks;
     private final Deque<Integer> freeBlocks;
 
     //
     // Construction
 
+    @SuppressWarnings("unchecked")
     public BlockMemory(IntConsumer setAllocatedSpace, int totalSpace) throws IOException {
         this.setAllocatedSpace = setAllocatedSpace;
 
         this.blocks = new Block[Block.numBlocks(totalSpace)];
         for (int i = 0; i < blocks.length; i++) {
-            this.blocks[i] = new Block(i);
+            this.blocks[i] = new Block<>(i);
         }
 
         this.reservedBlocks = new HashMap<>();
@@ -54,19 +53,19 @@ public final class BlockMemory implements Allocator<LMFile, Block> {
     }
 
     @Override
-    public Iterable<Block> allocate(LMFile f, int nblocks) throws IOException {
+    public Iterable<Block<BlockOwner>> allocate(BlockOwner owner, int nblocks) throws IOException {
         if (nblocks > freeBlocks.size())
-            throw new FileSystemException(f.getRouteString(), null, "Out of memory");
+            throw new FileSystemException(owner.toString(), null, "Out of memory");
 
-        List<Block> allocated = new LinkedList<>();
+        List<Block<BlockOwner>> allocated = new LinkedList<>();
         for (int i = 0; i < nblocks; i++) {
             Integer index = freeBlocks.removeFirst();
 
-            Block block = blocks[index];
+            Block<BlockOwner> block = blocks[index];
             allocated.add(block);
 
-            block.setOwner(f);
-            reservedBlocks.put(index, f);
+            block.setOwner(owner);
+            reservedBlocks.put(index, owner);
         }
 
         updateUsedSpace();
@@ -75,13 +74,13 @@ public final class BlockMemory implements Allocator<LMFile, Block> {
     }
 
     @Override
-    public void free(LMFile f, Iterable<Block> blocks) {
-        for (Block block : blocks) {
-            if (reservedBlocks.get(block.getIndex()) != f)
+    public void free(BlockOwner owner, Iterable<Block<BlockOwner>> blocks) {
+        for (Block<BlockOwner> block : blocks) {
+            if (reservedBlocks.get(block.getIndex()) != owner)
                 throw new IllegalArgumentException("Attempt to free wrongly associated block");
         }
 
-        for (Block block : blocks) {
+        for (Block<BlockOwner> block : blocks) {
             Integer index = block.getIndex();
 
             reservedBlocks.remove(index);
@@ -109,25 +108,26 @@ public final class BlockMemory implements Allocator<LMFile, Block> {
     //
     // Debug: Core Dump
 
-    public CoreDump getCoreDump() {
-        return new CoreDump(blocks, reservedBlocks, freeBlocks);
+    public CoreDump<BlockOwner> getCoreDump() {
+        return new CoreDump<BlockOwner>(blocks, reservedBlocks, freeBlocks);
     }
 
-    public static final class CoreDump {
-        private final Block[] blocks;
-        private final Map<Integer, LMFile> reservedBlocks;
+    public static final class CoreDump<BlockOwner> {
+        private final Block<BlockOwner>[] blocks;
+        private final Map<Integer, BlockOwner> reservedBlocks;
         private final Deque<Integer> freeBlocks;
 
         private String lastDump;
 
-        private CoreDump(Block[] blocks, Map<Integer, LMFile> reservedBlocks, Deque<Integer> freeBlocks) {
+        private CoreDump(Block<BlockOwner>[] blocks, Map<Integer, BlockOwner> reservedBlocks,
+                Deque<Integer> freeBlocks) {
             this.blocks = blocks;
             this.reservedBlocks = reservedBlocks;
             this.freeBlocks = freeBlocks;
             this.lastDump = null;
         }
 
-        public CoreDump build() {
+        public CoreDump<BlockOwner> build() {
             StringBuilder sb = new StringBuilder();
 
             sb.append("       # Blocks: " + blocks.length + "\n");

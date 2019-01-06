@@ -42,9 +42,9 @@ public final class LMSpace extends DynSpace<LMSpace> {
     //
     // State: Memory
 
-    private final BlockMemory memory;
+    private final BlockMemory<LMFile> memory;
 
-    BlockMemory getMemory() {
+    BlockMemory<LMFile> getMemory() {
         return memory;
     }
 
@@ -68,7 +68,7 @@ public final class LMSpace extends DynSpace<LMSpace> {
 
         this.name = name;
 
-        this.memory = new BlockMemory(this::setAllocatedSpace, totalSpace);
+        this.memory = new BlockMemory<>(this::setAllocatedSpace, totalSpace);
         this.root = new LMDirectory(this);
     }
 

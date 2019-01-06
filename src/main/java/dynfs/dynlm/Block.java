@@ -4,7 +4,7 @@ import java.io.IOException;
 
 import dynfs.debug.Dumpable;
 
-public class Block extends BlockLike implements Dumpable {
+public class Block<Owner> extends BlockLike<Owner> implements Dumpable {
 
     //
     // Constant: Block Size
