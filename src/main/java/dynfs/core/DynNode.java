@@ -149,21 +149,13 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     // Implementation Default: DynNode Type Attributes, Cache on Load
     // Best Practice: Determined by Class
 
-    public boolean isRegularFile() {
-        return false;
-    }
+    public abstract boolean isRegularFile();
 
-    public boolean isDirectory() {
-        return false;
-    }
+    public abstract boolean isDirectory();
 
-    public boolean isSymbolicLink() {
-        return false;
-    }
+    public abstract boolean isSymbolicLink();
 
-    public boolean isOther() {
-        return false;
-    }
+    public abstract boolean isOther();
 
     //
     // Interface: Access Control (Future)

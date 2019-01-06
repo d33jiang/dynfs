@@ -9,8 +9,23 @@ public abstract class DynLink<Space extends DynSpace<Space>, Node extends DynLin
     // Interface Implementation: DynNode Type Attributes
 
     @Override
+    public final boolean isRegularFile() {
+        return false;
+    }
+
+    @Override
+    public final boolean isDirectory() {
+        return false;
+    }
+
+    @Override
     public final boolean isSymbolicLink() {
         return true;
+    }
+
+    @Override
+    public final boolean isOther() {
+        return false;
     }
 
     //

@@ -34,8 +34,23 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     // Interface Implementation: DynNode Type Attributes
 
     @Override
+    public final boolean isRegularFile() {
+        return false;
+    }
+
+    @Override
     public final boolean isDirectory() {
         return true;
+    }
+
+    @Override
+    public final boolean isSymbolicLink() {
+        return false;
+    }
+
+    @Override
+    public final boolean isOther() {
+        return false;
     }
 
     //
@@ -150,7 +165,15 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     }
 
     public final ResolutionResult<Space> resolve(DynRoute route, boolean followLinks) throws IOException {
-        return resolveImpl(route, followLinks);
+        return resolve(route, followLinks, false);
+    }
+
+    public final ResolutionResult<Space> resolve(DynRoute route, boolean followLinks, boolean followIfLinkNode)
+            throws IOException {
+        if (route == null)
+            throw new NullPointerException("route is null");
+
+        return resolveImpl(route, followLinks, followIfLinkNode);
     }
 
     public final ResolutionResult<Space> resolve(DynRoute route, int endIndex) throws IOException {
@@ -158,21 +181,30 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     }
 
     public final ResolutionResult<Space> resolve(DynRoute route, boolean followLinks, int endIndex) throws IOException {
+        return resolve(route, followLinks, false, endIndex);
+    }
+
+    public final ResolutionResult<Space> resolve(DynRoute route, boolean followLinks, boolean followIfLinkNode,
+            int endIndex) throws IOException {
+        if (route == null)
+            throw new NullPointerException("route is null");
         if (endIndex < 0)
             throw new IllegalArgumentException("endIndex must be nonnegative");
         if (endIndex > route.getNameCount())
             throw new IllegalArgumentException("endIndex must be at most " + route.getNameCount());
 
-        return resolveImpl(route, followLinks, endIndex);
+        return resolveImpl(route, followLinks, followIfLinkNode, endIndex);
     }
 
-    private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks) throws IOException {
-        return resolveImpl(route, followLinks, route.getNameCount());
-    }
-
-    private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks, int endIndex)
+    private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks, boolean followIfLinkNode)
             throws IOException {
-        return resolveImpl(route, followLinks, 0, endIndex);
+        return resolveImpl(route, followLinks, followIfLinkNode, route.getNameCount());
+    }
+
+    private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks, boolean followIfLinkNode,
+            int endIndex)
+            throws IOException {
+        return resolveImpl(route, followLinks, followIfLinkNode, 0, endIndex);
     }
 
     //
@@ -180,7 +212,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
 
     // FUTURE: Access Control + UserPrincipal Support - Result.READ_ACCESS_DENIED is
     // possible when reading directories / following links
-    private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks,
+    private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks, boolean followIfLinkNode,
             int index, int endIndex) throws IOException {
         getStore().throwIfClosed();
 
@@ -202,7 +234,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
 
             index++;
 
-            if (index < endIndex) {
+            if (index < endIndex || followIfLinkNode) {
                 if (followLinks && lastNode instanceof DynLink) {
                     Set<DynLink<Space, ?>> visitedLinks = new HashSet<>();
                     while (lastNode instanceof DynLink) {

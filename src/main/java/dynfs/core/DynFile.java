@@ -13,6 +13,21 @@ public abstract class DynFile<Space extends DynSpace<Space>, Node extends DynFil
         return true;
     }
 
+    @Override
+    public final boolean isDirectory() {
+        return false;
+    }
+
+    @Override
+    public final boolean isSymbolicLink() {
+        return false;
+    }
+
+    @Override
+    public final boolean isOther() {
+        return false;
+    }
+
     //
     // Construction
 

@@ -179,4 +179,9 @@ public final class DynFileSystem<Space extends DynSpace<Space>> extends FileSyst
         return getStore().resolve(route, followLinks);
     }
 
+    public final ResolutionResult<Space> resolve(DynRoute route, boolean followLinks, boolean followIfLinkNode)
+            throws IOException {
+        return getStore().resolve(route, followLinks, followIfLinkNode);
+    }
+
 }

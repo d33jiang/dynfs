@@ -28,25 +28,24 @@ final class DynFileSystemGeneralCopier {
     //
     // Interface Implementation: Copy
 
-    // TODO: API Adherence - Adhere to API specification of Files.copy (re: copy to
-    // link, etc.)
     public static <S1 extends DynSpace<S1>, S2 extends DynSpace<S2>> void copy(DynFileSystem<S1> fsSrc,
             DynFileSystem<S2> fsDst, DynRoute src, DynRoute dst,
             CopyOptions copyOptions) throws IOException {
         // FUTURE: Access Control - Check access control
 
-        ResolutionResult<S1> srcResolution = fsSrc.resolve(src, !copyOptions.nofollowLinks);
+        ResolutionResult<S1> srcResolution = fsSrc.resolve(src, !copyOptions.nofollowLinks, true);
         DynNode<S1, ?> srcNode = srcResolution.testExistence();
-
-        Map<DynNodeAttribute, Object> srcAttributes = srcNode.readAllAttributes();
 
         ResolutionResult<S2> dstResolution = fsDst.resolve(dst);
         if (dstResolution.exists()) {
             if (copyOptions.replaceExisting) {
-                if ((dstResolution.node() instanceof DynDirectory)
-                        && !((DynDirectory<S2, ?>) dstResolution.node()).isEmpty()) {
-                    throw new DirectoryNotEmptyException(dst.toString());
+                if (dstResolution.node() instanceof DynDirectory) {
+                    if (!((DynDirectory<S2, ?>) dstResolution.node()).isEmpty())
+                        throw new DirectoryNotEmptyException(dst.toString());
+                } else if (dstResolution.node() instanceof DynLink) {
+                    throw new FileAlreadyExistsException(dst.toString(), null, "Target file is a symbolic link");
                 }
+
                 dstResolution.node().delete();
             } else {
                 throw new FileAlreadyExistsException(dst.toString());
@@ -77,15 +76,12 @@ final class DynFileSystemGeneralCopier {
 
         if (copyOptions.copyAttributes) {
             try {
+                Map<DynNodeAttribute, Object> srcAttributes = srcNode.readAllAttributes();
                 dstNode.writeAttributes(srcAttributes);
             } catch (IOException ex) {
-                try {
-                    dstNode.delete();
-                } catch (IOException ex0) {
-                    ex.addSuppressed(ex0);
-                }
-
-                throw ex;
+                // Makes a best effort to copy the DynNode attributes.
+                // If an exception is encountered, the DynFileSystem should be left in a
+                // consistent state by DynNode.writeAttributes.
             }
         }
     }
