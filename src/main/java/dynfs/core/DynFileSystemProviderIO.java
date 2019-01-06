@@ -47,11 +47,15 @@ public final class DynFileSystemProviderIO {
             throw new FileNotFoundException(route.toString());
 
         if (file == null) {
-            file = ((DynDirectory<Space, ?>) resolution.node()).createFile(route.getFileName(),
-                    attrs);
+            DynDirectory<Space, ?> parentDirectory = resolution.lastParent();
+            if (openOptions.sparse) {
+                file = parentDirectory.createSparseFile(route.getFileName(), attrs);
+            } else {
+                file = parentDirectory.createFile(route.getFileName(), attrs);
+            }
         }
 
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
 
         return new DynByteChannel(file, openOptions);
     }
@@ -63,7 +67,7 @@ public final class DynFileSystemProviderIO {
         if (!(node instanceof DynDirectory))
             throw new NotDirectoryException(dir.toString());
 
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
 
         return new DynDirectoryStream<>(fs, (DynDirectory<Space, ?>) node, filter);
     }
@@ -77,7 +81,7 @@ public final class DynFileSystemProviderIO {
         if (node != null)
             throw new FileAlreadyExistsException(dir.toString());
 
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
 
         resolution.lastParent().createDirectoryImpl(dir.getFileName(), attrs);
     }
@@ -116,8 +120,11 @@ public final class DynFileSystemProviderIO {
         copyImpl(fs, src, dst, copyOptions, true);
     }
 
-    // TODO: Adhere to API specification of Files.copy (re: copy to link, etc.)
-    // TODO: Redesign / restructure
+    // TODO: API Adherence - Adhere to API specification of Files.copy (re: copy to
+    // link, etc.)
+    // TODO: IntraSystem Copy - Redesign / restructure
+    // TODO: IntraSystem Copy - This should be *primarily* handled by
+    // implementation!!! (See DynDirectory.copyImpl)
     private static <Space extends DynSpace<Space>> void copyImpl(DynFileSystem<Space> fs, DynRoute src, DynRoute dst,
             CopyOptions copyOptions,
             boolean deleteSrc) throws IOException {
@@ -126,10 +133,10 @@ public final class DynFileSystemProviderIO {
         ResolutionResult<Space> dstResolution = fs.resolve(dst);
         DynNode<Space, ?> dstNode = dstResolution.testExistenceForCreation();
 
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
 
         if (copyOptions.atomicMove) {
-            // TODO: FS structure locks ...
+            // TODO: Atomic I/O - FS structure locks ...
         }
 
         DynDirectory<Space, ?> dstParentNode = dstNode == null ? (DynDirectory<Space, ?>) dstResolution.node()

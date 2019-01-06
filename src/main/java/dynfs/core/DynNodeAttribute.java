@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 
 public final class DynNodeAttribute {
 
-    // NOTE: Store DynNodeAttribute type as field? (Future feature?)
+    // FUTURE: Store DynNodeAttribute type as field?
 
     //
     // Static Support Structure: Associated DynNodeAttribute.View

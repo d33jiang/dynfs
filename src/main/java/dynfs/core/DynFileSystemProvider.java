@@ -34,16 +34,21 @@ import dynfs.core.store.DynSpaceLoader;
 
 public final class DynFileSystemProvider extends FileSystemProvider {
 
-    // TODO: Javadocs (project-wide)
-    // TODO: Interface Specification Adherence (project-wide)
+    // TODO: API Adherence - NIO Interface Specification Adherence (project-wide)
+    // TODO: Attribute I/O
     // TODO: Atomic I/O
-    // TODO: Explore Nullable, NonNull, etc. annotations; very likely not retained
-    // during runtime; might be retained beyond compilation?
-    // TODO: Reads / writes update DynFile times (See DynNode.touchByRead and
-    // .touchByWrite)
-    // TODO: Centralized (AccessControlClass).checkRead(), .checkCopy(),
-    // .checkWrite(), etc.
+    // TODO: Attribute I/O - Reads / writes update DynFile times (See
+    // DynNode.touchByRead and .touchByWrite)
+    // FUTURE: Access Control - Centralized (AccessControlClass).checkRead(),
+    // .checkCopy(), .checkWrite(), etc.
     // -> Beware of read-only DynSpace instances
+    // TODO: Code Base Style - Explore Nullable, NonNull, etc. annotations; very
+    // likely not retained
+    // during runtime; might be retained beyond compilation?
+    // TODO: Documentation - Javadocs (project-wide)
+    // TODO: Testing - Invariance-Based Tests for Small-Scale Systems
+    // TODO: Testing - Unit Tests
+    // TODO: Coverage
 
     //
     // Constant: URI Scheme
@@ -103,15 +108,16 @@ public final class DynFileSystemProvider extends FileSystemProvider {
             throw new ProviderMismatchException("File system associated with Path is not a DynFileSystem");
 
         if (!(fs.provider() instanceof DynFileSystemProvider))
-            // NOTE: Should never happen given that the previous check passes
+            // This should never be reached given that the previous check passes
             throw new IllegalStateException("DynFileSystem provider is not DynFileSystemProvider");
     }
 
     //
     // Static Support: DynRoute Resolution
 
-    // NOTE: Assumes (path instanceof DynPath)
     private static DynRoute getDynRoute(Path path) {
+        // It is assumed that (path instanceof DynPath) since Path arguments to the
+        // methods in this class must be associated with DynFileSystemProvider.
         DynPath dp = (DynPath) path;
         dp = dp.toAbsolutePath();
         return dp.route();
@@ -245,7 +251,7 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     // from file
     @Override
     public FileSystem newFileSystem(Path path, Map<String, ?> env) throws IOException {
-        // TODO: Future feature? (Load FS from file)
+        // FUTURE: Loading / Saving - Load FS from file?
         return super.newFileSystem(path, env);
     }
 

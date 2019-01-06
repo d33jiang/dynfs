@@ -3,6 +3,7 @@ package dynfs.core;
 import java.io.IOException;
 import java.nio.file.CopyOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.HashSet;
@@ -42,7 +43,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
 
     public final DynFile<Space, ?> createFile(String name, FileAttribute<?>... attrs)
             throws IOException {
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
         return createFileImpl(name, attrs);
     }
 
@@ -53,11 +54,28 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
             throws IOException;
 
     //
+    // Implementation Default: I/O, Sparse File Creation
+
+    public final DynFile<Space, ?> createSparseFile(String name, FileAttribute<?>... attrs)
+            throws IOException {
+        // FUTURE: Access Control - Check access control
+        return createSparseFileImpl(name, attrs);
+    }
+
+    /**
+     * @see StandardOpenOption#SPARSE
+     */
+    protected DynFile<Space, ?> createSparseFileImpl(String name, FileAttribute<?>... attrs)
+            throws IOException {
+        return createFileImpl(name, attrs);
+    }
+
+    //
     // Implementation Stub: DynFileSystemProvider I/O, Directory Creation
 
     public final DynDirectory<Space, ?> createDirectory(String name, FileAttribute<?>... attrs)
             throws IOException {
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
         return createDirectoryImpl(name, attrs);
     }
 
@@ -85,12 +103,12 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     // Interface Implementation Stub: DynFileSystemProvider I/O, Copy / Move
 
     public final void copy(DynNode<Space, ?> src, String dstName) throws IOException {
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
         copyImpl(src, dstName, false);
     }
 
     public final void move(DynNode<Space, ?> src, String dstName) throws IOException {
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
         copyImpl(src, dstName, true);
     }
 
@@ -160,8 +178,8 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     //
     // Implementation: DynRoute Resolution
 
-    // NOTE: After UserPrincipal support is implemented, "directory read access
-    // denied" and "link read access denied" are potential results
+    // FUTURE: Access Control + UserPrincipal Support - Result.READ_ACCESS_DENIED is
+    // possible when reading directories / following links
     private ResolutionResult<Space> resolveImpl(DynRoute route, boolean followLinks,
             int index, int endIndex) throws IOException {
         getStore().throwIfClosed();

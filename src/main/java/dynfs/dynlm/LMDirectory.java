@@ -56,7 +56,7 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
 
     @Override
     protected void deleteImpl() throws IOException {
-        // TODO: Temporary non-compliance w/ API
+        // TODO: API Adherence - Temporary non-compliance w/ API
         for (DynNode<LMSpace, ?> n : this) {
             n.delete();
         }
@@ -87,7 +87,7 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
 
     @Override
     protected void copyImpl(DynNode<LMSpace, ?> src, String dstName, boolean deleteSrc) throws IOException {
-        // TODO: Auto-generated method stub
+        // TODO: IntraSystem Copy - Implementation
         throw new NotImplementedException("Method stub");
     }
 
@@ -112,16 +112,19 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
 
     @Override
     protected Map<DynNodeAttribute, Object> readAttributesImpl(Set<DynNodeAttribute> keys) throws IOException {
+        // TODO: Attribute I/O - Implementation
         throw new NotImplementedException("DynFile Attributes are not yet supported by LMSpace");
     }
 
     @Override
     protected Map<DynNodeAttribute, Object> readAllAttributes() throws IOException {
+        // TODO: Attribute I/O - Implementation
         throw new NotImplementedException("DynFile Attributes are not yet supported by LMSpace");
     }
 
     @Override
     protected Map<String, Object> writeAttributesImpl(Map<String, ?> newMappings) throws IOException {
+        // TODO: Attribute I/O - Implementation
         throw new NotImplementedException("DynFile Attributes are not yet supported by LMSpace");
     }
 

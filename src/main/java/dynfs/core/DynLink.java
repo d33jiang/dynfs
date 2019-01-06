@@ -25,7 +25,7 @@ public abstract class DynLink<Space extends DynSpace<Space>, Node extends DynLin
     // Implementation Stub: Link Target
 
     public final DynRoute follow() throws IOException {
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
         return followImpl();
     }
 

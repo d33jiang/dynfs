@@ -72,7 +72,7 @@ public final class LMSpace extends DynSpace<LMSpace> {
         this.root = new LMDirectory(this);
     }
 
-    // TODO: Load from file (future)
+    // FUTURE: Loading / Saving - Load from file, save to file
 
     //
     // Implementation: Close

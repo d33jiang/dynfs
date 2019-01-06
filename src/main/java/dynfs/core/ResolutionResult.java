@@ -60,7 +60,8 @@ public final class ResolutionResult<Space extends DynSpace<Space>> {
         FAIL_NAME_NOT_FOUND,
         FAIL_IO_EXCEPTION_DURING_RESOLUTION,
         FAIL_LINK_LOOP,
-        FAIL_SUBRESOLUTION_FAILURE;
+        FAIL_SUBRESOLUTION_FAILURE,
+        READ_ACCESS_DENIED;
     }
 
     //

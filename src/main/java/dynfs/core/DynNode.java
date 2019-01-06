@@ -55,7 +55,7 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
 
     public abstract long readSize() throws IOException;
 
-    // NOTE: Javadoc Node - Default implementation
+    // NOTE: Javadoc Note - Default implementation
     protected void writeSize(long newSize) throws IOException {
         throw new UnsupportedOperationException("The size of this DynNode cannot be rewritten");
     }
@@ -139,6 +139,13 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     }
 
     //
+    // Interface: Root Node Check
+
+    public boolean isRoot() {
+        return parent == null;
+    }
+
+    //
     // Implementation Default: DynNode Type Attributes, Cache on Load
     // Best Practice: Determined by Class
 
@@ -162,14 +169,14 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     // Interface: Access Control (Future)
 
     public final void checkAccess(AccessModes modes) {
-        // TODO: Future feature
+        // FUTURE: Access Control
         throw new NotImplementedException("Access control is not yet implemented");
     }
 
     //
     // Support Structure: Attribute I/O, Failure Output
 
-    // NOTE: Preemptive interface definition
+    // NOTE: Preemptive support structure interface definition
     public static final class DynNodeAttributeIOFailure {
 
         //
@@ -272,7 +279,7 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     // Package Support: Touch DynNode
 
     final void touchByRead() throws IOException {
-        // TODO: Return immediately if no write access
+        // FUTURE: Access Control - Return immediately with no-op if no write access
 
         FileTime t = FileTime.from(Instant.now());
         writeTimes(null, null, t);
@@ -288,13 +295,13 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
 
     final void writeTimes(FileTime creationTime, FileTime lastModifiedTime, FileTime lastAccessTime)
             throws IOException {
-        // TODO: Check write access
+        // FUTURE: Access Control - Check write access
         // -> Beware of read-only DynSpace instances
 
         writeTimesImpl(creationTime, lastModifiedTime, lastAccessTime);
     }
 
-    // NOTE: Javadoc Node - Although it is tempting to cache the write operation, it
+    // NOTE: Javadoc Note - Although it is tempting to cache the write operation, it
     // must appear as though that the change has been committed after the
     // termination of this method call; i.e. readAttributesAsDynNodeFileAttributes
     // must return the new values on subsequent calls
@@ -333,7 +340,7 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
 
     public final Map<DynNodeAttribute, Object> writeAttributes(Map<DynNodeAttribute, ?> newMappings)
             throws IOException {
-        // TODO: Check write access
+        // FUTURE: Access Control - Check write access
         // -> Beware of read-only DynSpace instances
 
         return transformMapKeys(writeAttributesImpl(transformMapKeys(newMappings, DynNodeAttribute::toString)),
@@ -389,7 +396,7 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     // Implementation Stub: DynFileSystemProvider I/O, Node Deletion
 
     final void preDelete() throws IOException {
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
         // TODO: Close resources? or leave resources hanging to auto-close? (like Unix?)
         // -> Design Consideration - Should a failure during deleteImpl be allowed to
         // have a persistent impact on the state of the application? (e.g. closed
@@ -403,9 +410,9 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
      * @see FileSystemProvider#delete(Path)
      */
     public final void delete() throws IOException {
-        if (parent == null)
-            // TODO: Temporary exception; find better exception
-            throw new UnsupportedOperationException("Cannot delete root dir");
+        if (isRoot())
+            // TODO: Design Consideration - Temporary exception; find better exception
+            throw new UnsupportedOperationException("Cannot delete root node");
 
         parent.deleteChild(getName(), this);
     }

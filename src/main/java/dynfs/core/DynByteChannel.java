@@ -10,12 +10,12 @@ import dynfs.core.options.OpenOptions;
 
 final class DynByteChannel implements SeekableByteChannel {
 
-    // NOTE: OpenOptions.DSYNC is ignored; all data updates are synchronous
-    // NOTE: OpenOptions.SYNC is ignored; all (data + metadata) updates are
-    // synchronous
-    // TODO: Add desynchronization (via flushUpdates() interface?)
+    // TODO: Atomic I/O + Buffered I/O - Add desynchronization (via flushUpdates()
+    // interface?)
     // Base desynchronization off LMFile? (potentially very viable)
-    // NOTE: OpenOptions.SPARSE is ignored; unsupported feature
+    // -> OpenOptions.DSYNC is currently ignored; all data updates are synchronous
+    // -> OpenOptions.SYNC is ignored; all (data + metadata) updates are synchronous
+    // (metadata is not written currently)
 
     //
     // Configuration: DynFile
@@ -27,6 +27,9 @@ final class DynByteChannel implements SeekableByteChannel {
 
     private final boolean isReadOnly;
     private final boolean deleteOnClose;
+
+    private final boolean syncData;
+    private final boolean syncMetadata;
 
     //
     // State: Status
@@ -87,6 +90,9 @@ final class DynByteChannel implements SeekableByteChannel {
         this.isReadOnly = !(options.append || options.write);
         this.deleteOnClose = options.deleteOnClose;
 
+        this.syncData = options.dsync || options.sync;
+        this.syncMetadata = options.sync;
+
         if (options.truncateExisting) {
             truncate(0);
         } else {
@@ -138,7 +144,9 @@ final class DynByteChannel implements SeekableByteChannel {
     //
     // Interface Implementation: I/O, Read / Write
 
-    // NOTE: cleanse buffer (after every read/write) option? (future feature?)
+    // FUTURE: OpenOption to cleanse buffer after every read/write?
+    // Design Consideration - Option to *not* cleanse buffer? (i.e. default is to
+    // cleanse buffer?)
     private final byte[] buf = new byte[512];
 
     private static int truncateLongToInt(long v) {
@@ -174,6 +182,8 @@ final class DynByteChannel implements SeekableByteChannel {
             position = fileSize;
         }
 
+        // TODO: Attribute I/O - Update metadata
+
         return bytesToRead;
     }
 
@@ -208,6 +218,8 @@ final class DynByteChannel implements SeekableByteChannel {
             position += bytesWritten;
             rem -= bytesWritten;
         }
+
+        // TODO: Attribute I/O - Update metadata
 
         return bytesToWrite;
     }

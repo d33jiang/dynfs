@@ -140,31 +140,31 @@ public final class DynFileSystem<Space extends DynSpace<Space>> extends FileSyst
 
     @Override
     public UserPrincipalLookupService getUserPrincipalLookupService() {
-        // NOTE: Future feature?
+        // FUTURE: UserPrincipal Support, atop Access Control
         throw new UnsupportedOperationException("Users and groups are not supported");
     }
 
     //
     // Interface: WatchService Support (Unsupported)
 
-    // NOTE: Check access control if implemented
+    // FUTURE: Access Control - Check permissions
 
     @Override
     public WatchService newWatchService() throws IOException {
-        // NOTE: Future feature?
+        // FUTURE: WatchService Support
         throw new UnsupportedOperationException("Watch services are not supported");
     }
 
     public WatchKey register(WatchService watcher, DynRoute route, Kind<?>[] events) throws IOException {
-        // NOTE: Future feature?
-        // NOTE: Delegate to WatchService
+        // FUTURE: WatchService Support
+        // NOTE: Delegate to WatchService implementation
         throw new UnsupportedOperationException("Watch services are not supported");
     }
 
     public WatchKey register(WatchService watcher, DynRoute route, Kind<?>[] events, Modifier[] modifiers)
             throws IOException {
-        // NOTE: Future feature?
-        // NOTE: Delegate to WatchService
+        // FUTURE: WatchService Support
+        // NOTE: Delegate to WatchService implementation
         throw new UnsupportedOperationException("Watch services are not supported");
     }
 

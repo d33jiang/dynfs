@@ -29,11 +29,12 @@ final class DynFileSystemGeneralCopier {
     //
     // Interface Implementation: Copy
 
-    // TODO: Adhere to API specification of Files.copy (re: copy to link, etc.)
+    // TODO: API Adherence - Adhere to API specification of Files.copy (re: copy to
+    // link, etc.)
     public static <S1 extends DynSpace<S1>, S2 extends DynSpace<S2>> void copy(DynFileSystem<S1> fsSrc,
             DynFileSystem<S2> fsDst, DynRoute src, DynRoute dst,
             CopyOptions copyOptions) throws IOException {
-        // TODO: Check access control
+        // FUTURE: Access Control - Check access control
 
         BasicFileAttributes srcAttributes = DynFileSystemProviderIO.readAttributes(fsSrc, src,
                 BasicFileAttributes.class,

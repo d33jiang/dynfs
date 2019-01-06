@@ -311,13 +311,13 @@ public final class DynPath implements Path {
     }
 
     //
-    // Implementation: Path Matcher (Future)
+    // Implementation: Path Matching (Future)
 
     public static PathMatcher getPathMatcher(String syntaxAndPattern) {
         if (syntaxAndPattern == null)
             throw new NullPointerException("syntaxAndPattern is null");
 
-        // TODO: Future feature?
+        // FUTURE: Path Matching
         throw new UnsupportedOperationException("PathMatchers are unavailable for DynFileSystemPaths");
     }
 

@@ -273,4 +273,6 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
         return getRootDirectory().resolve(route, followLinks);
     }
 
+    // TODO: Atomic I/O - Route Exclusivity Lock?
+
 }

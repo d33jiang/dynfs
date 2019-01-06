@@ -5,7 +5,7 @@ import java.util.Arrays;
 @Deprecated
 public class HeterogeneousBlockList<Owner> {
 
-    // TODO: Future feature?
+    // TODO: Heterogeneous Block List - Implementation as exercise
 
     //
     // State: Nested Blocks
