@@ -17,4 +17,7 @@ public interface Allocator<Owner, Resource> extends Closeable {
 
     @Override
     public void close() throws IOException;
+
+    public boolean isClosed();
+
 }

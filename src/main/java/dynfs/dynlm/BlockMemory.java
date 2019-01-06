@@ -26,7 +26,7 @@ public final class BlockMemory implements Allocator<LMFile, Block> {
     //
     // State: Blocks
 
-    private final Block[] blocks;
+    private Block[] blocks;
 
     private final Map<Integer, LMFile> reservedBlocks;
     private final Deque<Integer> freeBlocks;
@@ -97,10 +97,13 @@ public final class BlockMemory implements Allocator<LMFile, Block> {
     // Implementation: Close
 
     @Override
-    public void close() throws IOException {
-        for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = null;
-        }
+    public void close() {
+        blocks = null;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return blocks == null;
     }
 
     //

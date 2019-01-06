@@ -16,7 +16,7 @@ public class LMFile extends DynFile<LMSpace, LMFile> {
     //
     // State: Data
 
-    private BlockList data;
+    private BlockWeakReferenceList data;
 
     //
     // State: Size
@@ -47,7 +47,7 @@ public class LMFile extends DynFile<LMSpace, LMFile> {
         super(store, parent, name);
 
         size = 0;
-        data = new BlockList(store.getMemory(), this);
+        data = new BlockWeakReferenceList(store.getMemory(), this);
     }
 
     //
