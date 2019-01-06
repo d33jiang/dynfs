@@ -44,8 +44,7 @@ public final class LMSpace extends DynSpace<LMSpace> {
 
     private final BlockMemory memory;
 
-    // DEBUG: public for testing (change to package-private)
-    public BlockMemory getMemory() {
+    BlockMemory getMemory() {
         return memory;
     }
 

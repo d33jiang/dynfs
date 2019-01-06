@@ -53,10 +53,9 @@ public class LMFile extends DynFile<LMSpace, LMFile> {
     //
     // Core Support: Conversion to String
 
-    // DEBUG
     @Override
     public String toString() {
-        return getRouteString() + " -> " + size;
+        return String.format("[LMFile: %s | size = %d | blocks = %s]", getRouteString(), size, data.getBlockIndices());
     }
 
     //

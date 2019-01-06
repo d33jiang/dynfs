@@ -65,7 +65,7 @@ public final class DynFileSystemProviderIO {
 
         // TODO: Check access control
 
-        return new DynDirectoryStream<Space>((DynDirectory<Space, ?>) node, filter);
+        return new DynDirectoryStream<>(fs, (DynDirectory<Space, ?>) node, filter);
     }
 
     public static <Space extends DynSpace<Space>> void createDirectory(DynFileSystem<Space> fs, DynRoute dir,

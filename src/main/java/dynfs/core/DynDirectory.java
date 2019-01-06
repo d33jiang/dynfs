@@ -173,12 +173,12 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
             try {
                 lastNode = lastParent.resolveRouteName(route.getName(index));
             } catch (IOException ex) {
-                return new ResolutionResult<Space>(lastParent, lastParent, route, index, endIndex,
+                return new ResolutionResult<>(lastParent, lastParent, route, index, endIndex,
                         Result.FAIL_IO_EXCEPTION_DURING_RESOLUTION, ex);
             }
 
             if (lastNode == null) {
-                return new ResolutionResult<Space>(lastParent, lastParent, route, index, endIndex,
+                return new ResolutionResult<>(lastParent, lastParent, route, index, endIndex,
                         Result.FAIL_NAME_NOT_FOUND);
             }
 
@@ -190,7 +190,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
                     while (lastNode instanceof DynLink) {
                         DynLink<Space, ?> link = (DynLink<Space, ?>) lastNode;
                         if (visitedLinks.contains(link)) {
-                            return new ResolutionResult<Space>(lastParent, lastNode, route, index, endIndex,
+                            return new ResolutionResult<>(lastParent, lastNode, route, index, endIndex,
                                     Result.FAIL_LINK_LOOP, link.getRoute());
                         }
 
@@ -198,7 +198,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
 
                         ResolutionResult<Space> resolution = getStore().resolve(link.follow());
                         if (!resolution.isSuccess()) {
-                            return new ResolutionResult<Space>(lastParent, lastNode, route, index, endIndex,
+                            return new ResolutionResult<>(lastParent, lastNode, route, index, endIndex,
                                     Result.FAIL_SUBRESOLUTION_FAILURE, resolution);
                         }
 
@@ -207,7 +207,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
                 }
 
                 if (!(lastNode instanceof DynDirectory)) {
-                    return new ResolutionResult<Space>(lastParent, lastNode, route, index, endIndex,
+                    return new ResolutionResult<>(lastParent, lastNode, route, index, endIndex,
                             Result.FAIL_NON_DIRECTORY_ENCOUNTERED);
                 }
 
@@ -215,7 +215,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
             }
         }
 
-        return new ResolutionResult<Space>(lastParent, lastNode, route, index, endIndex,
+        return new ResolutionResult<>(lastParent, lastNode, route, index, endIndex,
                 Result.SUCCESS_END_INDEX_REACHED);
     }
 

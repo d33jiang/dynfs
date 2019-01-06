@@ -70,6 +70,13 @@ public final class DynPath implements Path {
         return new DynPath(fs, fs.domain(), DynRoute.fromRouteNames(first, more));
     }
 
+    public static DynPath newPath(DynFileSystem<?> fs, DynRoute route) {
+        if (route == null)
+            throw new NullPointerException("route is null");
+
+        return new DynPath(fs, fs.domain(), route);
+    }
+
     //
     // Core Support: Comparable<Path>
 

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import dynfs.template.Allocator;
 
@@ -36,6 +37,18 @@ public final class BlockList extends BlockLike {
             this.nested.put(offset, b);
             offset += b.capacity();
         }
+    }
+
+    //
+    // Core Support: Conversion to String
+
+    List<Integer> getBlockIndices() {
+        return nested.values().stream().map(Block::getIndex).collect(Collectors.toList());
+    }
+
+    @Override
+    public String toString() {
+        return String.format("[BlockList: %s]", getBlockIndices());
     }
 
     //

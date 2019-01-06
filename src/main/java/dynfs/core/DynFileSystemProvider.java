@@ -36,12 +36,7 @@ public final class DynFileSystemProvider extends FileSystemProvider {
 
     // TODO: Javadocs (project-wide)
     // TODO: Interface Specification Adherence (project-wide)
-    // TODO: Design WeakReference cut to give control over memory management to impl
     // TODO: Atomic I/O
-    // TODO: Standardize diamonds, implicit diamonds, explicit type arguments
-    // TODO: Verify static method invocations all occur through class name
-    // TODO: In all non-final classes, all non-private methods that should not be
-    // overridden should be made final
     // TODO: Explore Nullable, NonNull, etc. annotations; very likely not retained
     // during runtime; might be retained beyond compilation?
     // TODO: Centralized (AccessControlClass).checkRead(), .checkCopy(),

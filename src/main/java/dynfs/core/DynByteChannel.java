@@ -8,11 +8,11 @@ import java.util.Arrays;
 
 import dynfs.core.options.OpenOptions;
 
-public final class DynByteChannel implements SeekableByteChannel {
+final class DynByteChannel implements SeekableByteChannel {
 
-    // TODO: Implement use of OpenOptions
     // NOTE: OpenOptions.DSYNC is ignored; all data updates are synchronous
-    // NOTE: OpenOptions.SYNC is ignored; all updates are synchronous
+    // NOTE: OpenOptions.SYNC is ignored; all (data + metadata) updates are
+    // synchronous
     // TODO: Add desynchronization (via flushUpdates() interface?)
     // Base desynchronization off LMFile? (potentially very viable)
     // NOTE: OpenOptions.SPARSE is ignored; unsupported feature
