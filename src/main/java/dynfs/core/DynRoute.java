@@ -110,7 +110,6 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     }
 
     private static List<String> decomposePathString(String first, String... more) {
-        // TODO: API Clarification - Should null path components be removed?
         Stream<String> pathStream = Stream.concat(Stream.<String>builder().add(first).build(), Arrays.stream(more));
         List<String> pathComponents = pathStream.flatMap(ps -> Arrays.stream(ps.split(PATH_SEPARATOR)))
                 .collect(Collectors.toCollection(ArrayList<String>::new));
@@ -118,7 +117,6 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     }
 
     static DynRoute fromRouteNames(String first, String... more) {
-        // TODO: API Clarification - Should null path components be removed?
         boolean isAbsolute = first.startsWith(PATH_SEPARATOR);
         if (isAbsolute) {
             first = first.substring(1);

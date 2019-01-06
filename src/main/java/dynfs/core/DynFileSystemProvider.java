@@ -39,6 +39,8 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     // TODO: Atomic I/O
     // TODO: Explore Nullable, NonNull, etc. annotations; very likely not retained
     // during runtime; might be retained beyond compilation?
+    // TODO: Reads / writes update DynFile times (See DynNode.touchByRead and
+    // .touchByWrite)
     // TODO: Centralized (AccessControlClass).checkRead(), .checkCopy(),
     // .checkWrite(), etc.
     // -> Beware of read-only DynSpace instances

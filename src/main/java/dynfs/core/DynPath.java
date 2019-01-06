@@ -64,6 +64,8 @@ public final class DynPath implements Path {
     }
 
     public static DynPath newPath(DynFileSystem<?> fs, String first, String... more) {
+        if (first == null)
+            throw new NullPointerException("first is null");
         if (more == null)
             throw new NullPointerException("more is null");
 

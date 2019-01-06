@@ -107,20 +107,17 @@ public class LMFile extends DynFile<LMSpace, LMFile> {
 
     @Override
     protected Map<DynNodeAttribute, Object> readAttributesImpl(Set<DynNodeAttribute> keys) throws IOException {
-        // TODO: Auto-generated method stub
-        throw new NotImplementedException("Method stub");
+        throw new NotImplementedException("DynFile Attributes are not yet supported by LMSpace");
     }
 
     @Override
     protected Map<DynNodeAttribute, Object> readAllAttributes() throws IOException {
-        // TODO: Auto-generated method stub
-        throw new NotImplementedException("Method stub");
+        throw new NotImplementedException("DynFile Attributes are not yet supported by LMSpace");
     }
 
     @Override
     protected Map<String, Object> writeAttributesImpl(Map<String, ?> newMappings) throws IOException {
-        // TODO: Auto-generated method stub
-        throw new NotImplementedException("Method stub");
+        throw new NotImplementedException("DynFile Attributes are not yet supported by LMSpace");
     }
 
 }

@@ -43,8 +43,6 @@ public abstract class DynSpace<Space extends DynSpace<Space>> extends FileStore 
     //
     // Configuration: Total Space
 
-    // TODO: API Clarification - Is totalSpace every allowed to change?
-
     private final long totalSpace;
 
     @Override
