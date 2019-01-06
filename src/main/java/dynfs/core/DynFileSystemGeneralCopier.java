@@ -6,8 +6,7 @@ import java.nio.channels.ByteChannel;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributeView;
-import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
 
@@ -36,9 +35,10 @@ final class DynFileSystemGeneralCopier {
             CopyOptions copyOptions) throws IOException {
         // FUTURE: Access Control - Check access control
 
-        BasicFileAttributes srcAttributes = DynFileSystemProviderIO.readAttributes(fsSrc, src,
-                BasicFileAttributes.class,
-                copyOptions.getLinkOptions());
+        ResolutionResult<S1> srcResolution = fsSrc.resolve(src, !copyOptions.nofollowLinks);
+        DynNode<S1, ?> srcNode = srcResolution.testExistence();
+
+        Map<DynNodeAttribute, Object> srcAttributes = srcNode.readAllAttributes();
 
         ResolutionResult<S2> dstResolution = fsDst.resolve(dst);
         if (dstResolution.exists()) {
@@ -53,7 +53,7 @@ final class DynFileSystemGeneralCopier {
             }
         }
 
-        if (srcAttributes.isDirectory()) {
+        if (srcNode.isDirectory()) {
             dstResolution.lastParent().createDirectoryImpl(dst.getFileName());
         } else {
             OpenOptions readOptions = OpenOptions.parse(ImmutableList.of(StandardOpenOption.READ));
@@ -73,16 +73,14 @@ final class DynFileSystemGeneralCopier {
             }
         }
 
+        DynNode<S2, ?> dstNode = fsDst.resolve(dst).testExistence();
+
         if (copyOptions.copyAttributes) {
             try {
-                BasicFileAttributeView dstAttributes = DynFileSystemProviderIO.getFileAttributeView(fsDst, dst,
-                        BasicFileAttributeView.class,
-                        copyOptions.getLinkOptions());
-                dstAttributes.setTimes(srcAttributes.lastModifiedTime(), srcAttributes.lastAccessTime(),
-                        srcAttributes.creationTime());
+                dstNode.writeAttributes(srcAttributes);
             } catch (IOException ex) {
                 try {
-                    fsDst.resolve(dst).testExistence().delete();
+                    dstNode.delete();
                 } catch (IOException ex0) {
                     ex.addSuppressed(ex0);
                 }
