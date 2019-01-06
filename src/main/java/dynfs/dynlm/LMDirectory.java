@@ -14,6 +14,7 @@ import dynfs.core.DynDirectory;
 import dynfs.core.DynFile;
 import dynfs.core.DynNode;
 import dynfs.core.DynNodeAttribute;
+import dynfs.core.options.CopyOptions;
 
 public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
 
@@ -86,9 +87,16 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
     }
 
     @Override
-    protected void copyImpl(DynNode<LMSpace, ?> src, String dstName, boolean deleteSrc) throws IOException {
+    protected void copyImpl(DynNode<LMSpace, ?> srcNode, String dstName, CopyOptions copyOptions, boolean deleteSrc)
+            throws IOException {
         // TODO: IntraSystem Copy - Implementation
         throw new NotImplementedException("Method stub");
+    }
+
+    @Override
+    protected void copySimpleImpl(DynNode<LMSpace, ?> srcNode, String dstName) throws IOException {
+        // TODO: IntraSystem Copy - Test default implementation.
+        // No-op.
     }
 
     //

@@ -2,15 +2,19 @@ package dynfs.core;
 
 import java.io.IOException;
 import java.nio.file.CopyOption;
+import java.nio.file.DirectoryNotEmptyException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 import dynfs.core.ResolutionResult.Result;
+import dynfs.core.options.CopyOptions;
 
 public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends DynDirectory<Space, Node>>
         extends DynNode<Space, Node>
@@ -115,24 +119,82 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     protected abstract void deleteChildImpl(String name, DynNode<Space, ?> node) throws IOException;
 
     //
-    // Interface Implementation Stub: DynFileSystemProvider I/O, Copy / Move
+    // Interface: DynFileSystemProvider I/O, Copy / Move
 
-    public final void copy(DynNode<Space, ?> src, String dstName) throws IOException {
-        // FUTURE: Access Control - Check access control
-        copyImpl(src, dstName, false);
+    public final void copy(DynNode<Space, ?> src, String dstName, CopyOptions copyOptions) throws IOException {
+        unifiedCopyMove(src, dstName, copyOptions, false);
     }
 
-    public final void move(DynNode<Space, ?> src, String dstName) throws IOException {
-        // FUTURE: Access Control - Check access control
-        copyImpl(src, dstName, true);
+    public final void move(DynNode<Space, ?> src, String dstName, CopyOptions copyOptions) throws IOException {
+        unifiedCopyMove(src, dstName, copyOptions, true);
     }
+
+    void unifiedCopyMove(DynNode<Space, ?> src, String dstName, CopyOptions copyOptions, boolean deleteSrc)
+            throws IOException {
+        // FUTURE: Access Control - Check access control
+        copyImpl(src, dstName, copyOptions, deleteSrc);
+    }
+
+    //
+    // Implementation Stub: DynFileSystemProvider I/O, Copy / Move
 
     /**
      * @see FileSystemProvider#copy(Path, Path, CopyOption...)
      * @see FileSystemProvider#move(Path, Path, CopyOption...)
      */
-    protected abstract void copyImpl(DynNode<Space, ?> src, String dstName, boolean deleteSrc)
-            throws IOException;
+    protected void copyImpl(DynNode<Space, ?> srcNode, String dstName, CopyOptions copyOptions, boolean deleteSrc)
+            throws IOException {
+        DynNode<Space, ?> dstNode = resolveChild(dstName);
+
+        if (copyOptions.atomicMove) {
+            // TODO: Atomic I/O - FS structure locks ...
+        }
+
+        if (dstNode != null) {
+            if (copyOptions.replaceExisting) {
+                if (dstNode instanceof DynDirectory) {
+                    if (!((DynDirectory<Space, ?>) dstNode).isEmpty())
+                        throw new DirectoryNotEmptyException(dstNode.getRouteString());
+                } else if (dstNode instanceof DynLink) {
+                    throw new FileAlreadyExistsException(dstNode.getRouteString(), null,
+                            "Target file is a symbolic link");
+                }
+
+                dstNode.delete();
+            } else {
+                throw new FileAlreadyExistsException(dstNode.getRouteString());
+            }
+        }
+
+        if (srcNode.isDirectory()) {
+            createDirectoryImpl(dstName);
+        } else {
+            copySimpleImpl(srcNode, dstName);
+        }
+
+        dstNode = resolveChild(dstName);
+
+        if (copyOptions.copyAttributes) {
+            try {
+                Map<DynNodeAttribute, Object> srcAttributes = srcNode.readAllAttributes();
+                dstNode.writeAttributes(srcAttributes);
+            } catch (IOException ex) {
+                // Makes a best effort to copy the DynNode attributes.
+                // If an exception is encountered, the DynFileSystem should be left in a
+                // consistent state by DynNode.writeAttributes.
+            }
+        }
+
+        // TODO: Should lastAccessTime be modified? creationTime?
+
+        if (deleteSrc) {
+            srcNode.delete();
+        }
+    }
+
+    // NOTE: Javadoc Note - Implement this or implement a no-op and override
+    // copyImpl.
+    protected abstract void copySimpleImpl(DynNode<Space, ?> srcNode, String dstName) throws IOException;
 
     //
     // Interface Implementation Stub: Iterable<DynNode>
@@ -152,6 +214,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
             return this;
         if (DynRoute.PATH_PARENT.equals(name))
             return getParent();
+
         return resolveChild(name);
     }
 
@@ -232,6 +295,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
                         Result.FAIL_NAME_NOT_FOUND);
             }
 
+            lastParent = lastNode.getParent();
             index++;
 
             if (index < endIndex || followIfLinkNode) {

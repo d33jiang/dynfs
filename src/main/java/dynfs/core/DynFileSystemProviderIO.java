@@ -3,13 +3,11 @@ package dynfs.core;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.DirectoryStream.Filter;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
@@ -120,69 +118,15 @@ public final class DynFileSystemProviderIO {
         copyImpl(fs, src, dst, copyOptions, true);
     }
 
-    // TODO: API Adherence - Adhere to API specification of Files.copy (re: copy to
-    // link, etc.)
-    // TODO: IntraSystem Copy - Redesign / restructure
-    // TODO: IntraSystem Copy - This should be *primarily* handled by
-    // implementation!!! (See DynDirectory.copyImpl)
     private static <Space extends DynSpace<Space>> void copyImpl(DynFileSystem<Space> fs, DynRoute src, DynRoute dst,
             CopyOptions copyOptions,
             boolean deleteSrc) throws IOException {
         ResolutionResult<Space> srcResolution = fs.resolve(src, !copyOptions.nofollowLinks);
         DynNode<Space, ?> srcNode = srcResolution.testExistence();
         ResolutionResult<Space> dstResolution = fs.resolve(dst);
-        DynNode<Space, ?> dstNode = dstResolution.testExistenceForCreation();
+        dstResolution.testExistenceForCreation();
 
-        // FUTURE: Access Control - Check access control
-
-        if (copyOptions.atomicMove) {
-            // TODO: Atomic I/O - FS structure locks ...
-        }
-
-        DynDirectory<Space, ?> dstParentNode = dstNode == null ? (DynDirectory<Space, ?>) dstResolution.node()
-                : dstNode.getParent();
-
-        BasicFileAttributes srcAttributes = srcNode.readAttributesAsFileAttributesClass(BasicFileAttributes.class);
-
-        if (dstNode != null) {
-            if (copyOptions.replaceExisting) {
-                if ((dstNode instanceof DynDirectory)
-                        && !((DynDirectory<Space, ?>) dstNode).isEmpty()) {
-                    throw new DirectoryNotEmptyException(dst.toString());
-                }
-                dstNode.delete();
-            } else {
-                throw new FileAlreadyExistsException(dst.toString());
-            }
-        }
-
-        if (srcAttributes.isDirectory()) {
-            dstParentNode.createDirectoryImpl(dst.getFileName());
-        } else {
-            dstParentNode.copyImpl(srcNode, dst.getFileName(), deleteSrc);
-        }
-
-        // TODO: Should this be handled by implementation instead of framework?
-        if (copyOptions.copyAttributes) {
-            try {
-                BasicFileAttributeView dstAttributes = getFileAttributeView(fs, dst,
-                        BasicFileAttributeView.class,
-                        copyOptions.getLinkOptions());
-                dstAttributes.setTimes(srcAttributes.lastModifiedTime(), srcAttributes.lastAccessTime(),
-                        srcAttributes.creationTime());
-            } catch (IOException ex) {
-                try {
-                    // TODO: Revert
-                    throw new IOException("Dummy");
-                } catch (IOException ex0) {
-                    ex.addSuppressed(ex0);
-                }
-
-                throw ex;
-            }
-        }
-
-        // TODO: Should lastAccessTime be modified? creationTime?
+        dstResolution.lastParent().unifiedCopyMove(srcNode, dst.getFileName(), copyOptions, deleteSrc);
     }
 
     public static <Space extends DynSpace<Space>> boolean isSameFile(DynFileSystem<Space> fs, DynRoute route1,
