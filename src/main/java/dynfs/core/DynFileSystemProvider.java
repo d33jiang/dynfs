@@ -34,20 +34,26 @@ import dynfs.core.store.DynSpaceLoader;
 
 public final class DynFileSystemProvider extends FileSystemProvider {
 
-    // TODO: API Adherence - NIO Interface Specification Adherence (project-wide)
     // TODO: Attribute I/O
+
     // TODO: Atomic I/O
+
     // TODO: Attribute I/O - Reads / writes update DynFile times (See
     // DynNode.touchByRead and .touchByWrite)
+
     // FUTURE: Access Control - Centralized (AccessControlClass).checkRead(),
     // .checkCopy(), .checkWrite(), etc.
     // -> Beware of read-only DynSpace instances
+
     // TODO: Code Base Style - Explore Nullable, NonNull, etc. annotations; very
-    // likely not retained
-    // during runtime; might be retained beyond compilation?
+    // likely not retained during runtime; might be retained beyond compilation?
+
     // TODO: Documentation - Javadocs (project-wide)
+    // TODO: API Adherence - NIO Interface Specification Adherence (project-wide)
+
     // TODO: Testing - Invariance-Based Tests for Small-Scale Systems
     // TODO: Testing - Unit Tests
+
     // TODO: Coverage
 
     //
