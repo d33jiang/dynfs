@@ -20,6 +20,7 @@ import dynfs.core.DynPath;
 import dynfs.core.store.DynSpaceFactory;
 import dynfs.dynlm.Block;
 import dynfs.dynlm.BlockMemory;
+import dynfs.dynlm.LMFile;
 import dynfs.dynlm.LMSpace;
 
 public class Main {
@@ -82,7 +83,8 @@ public class Main {
 
         // */
 
-        BlockMemory memory = (BlockMemory) invoke(store, "getMemory");
+        @SuppressWarnings("unchecked")
+        BlockMemory<LMFile> memory = (BlockMemory<LMFile>) invoke(store, "getMemory");
 
         System.out.println("##");
         System.out.println(store.getRootDirectory().getTreeDump().build());
