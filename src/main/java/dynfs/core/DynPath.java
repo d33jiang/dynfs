@@ -69,7 +69,7 @@ public final class DynPath implements Path {
         if (more == null)
             throw new NullPointerException("more is null");
 
-        return new DynPath(fs, fs.domain(), DynRoute.fromRouteNames(first, more));
+        return new DynPath(fs, fs.domain(), DynRoute.fromRouteNamesImpl(first, more));
     }
 
     public static DynPath newPath(DynFileSystem<?> fs, DynRoute route) {
@@ -77,6 +77,29 @@ public final class DynPath implements Path {
             throw new NullPointerException("route is null");
 
         return new DynPath(fs, fs.domain(), route);
+    }
+
+    //
+    // Core Support: Equality Check
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof DynPath)) {
+            return false;
+        }
+
+        DynPath p = (DynPath) o;
+
+        if (fs != p.fs) {
+            return false;
+        }
+
+        if (!domain.equals(p.domain)) {
+            // fs == p.fs == null (because the domain of a DynFileSystem is constant)
+            return false;
+        }
+
+        return route.equals(p.route);
     }
 
     //
@@ -88,6 +111,8 @@ public final class DynPath implements Path {
             throw new NullPointerException("other is null");
         if (!(other instanceof DynPath))
             throw new ClassCastException("other is not a DynPath");
+
+        // NOTE: Throw if different DynFileSystem instances?
 
         DynPath p = (DynPath) other;
         return route.compareTo(p.route);

@@ -1,5 +1,6 @@
 package dynfs.core;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.CopyOption;
 import java.nio.file.DirectoryNotEmptyException;
@@ -108,6 +109,10 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     // Implementation Stub: DynFileSystemProvider I/O, Child Deletion
 
     final void deleteChild(String name, DynNode<Space, ?> node) throws IOException {
+        DynNode<Space, ?> resolvedNode = resolveChildImpl(name);
+        if (resolvedNode != node)
+            throw new IllegalStateException("Resolving name gives a different node");
+
         node.preDelete();
 
         deleteChildImpl(name, node);
@@ -144,7 +149,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
      */
     protected void copyImpl(DynNode<Space, ?> srcNode, String dstName, CopyOptions copyOptions, boolean deleteSrc)
             throws IOException {
-        DynNode<Space, ?> dstNode = resolveChild(dstName);
+        DynNode<Space, ?> dstNode = resolveChildImpl(dstName);
 
         if (copyOptions.atomicMove) {
             // TODO: Atomic I/O - FS structure locks ...
@@ -172,7 +177,7 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
             copySimpleImpl(srcNode, dstName);
         }
 
-        dstNode = resolveChild(dstName);
+        dstNode = resolveChildImpl(dstName);
 
         if (copyOptions.copyAttributes) {
             try {
@@ -209,16 +214,26 @@ public abstract class DynDirectory<Space extends DynSpace<Space>, Node extends D
     //
     // Interface Implementation Stub: Child Resolution
 
+    public final DynNode<Space, ?> resolveChild(String name) throws IOException {
+        // FUTURE: Access Control - Check access control
+
+        DynNode<Space, ?> node = resolveChildImpl(name);
+        if (node == null)
+            throw new FileNotFoundException(getRoute().resolve(name).toString());
+
+        return node;
+    }
+
     private DynNode<Space, ?> resolveRouteName(String name) throws IOException {
         if (DynRoute.PATH_CURDIR.equals(name))
             return this;
         if (DynRoute.PATH_PARENT.equals(name))
             return getParent();
 
-        return resolveChild(name);
+        return resolveChildImpl(name);
     }
 
-    protected abstract DynNode<Space, ?> resolveChild(String name) throws IOException;
+    protected abstract DynNode<Space, ?> resolveChildImpl(String name) throws IOException;
 
     //
     // Interface: DynRoute Resolution

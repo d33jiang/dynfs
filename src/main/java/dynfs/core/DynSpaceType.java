@@ -58,6 +58,20 @@ public final class DynSpaceType {
     }
 
     //
+    // Core Support: Equality Check
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof DynSpaceType)) {
+            return false;
+        }
+
+        DynSpaceType other = (DynSpaceType) o;
+
+        return this.locality == other.locality && this.storage == other.storage;
+    }
+
+    //
     // Interface Implementation: Type String
 
     public String toTypeString() {

@@ -264,9 +264,7 @@ public final class DynFileSystemProvider extends FileSystemProvider {
     //
     // Interface Implementation: File System Decoupling (Unused)
 
-    @SuppressWarnings("unused")
-    @Deprecated
-    private boolean __decoupleFileSystem(String domain, DynFileSystem<?> fs) {
+    boolean decoupleFileSystem(String domain, DynFileSystem<?> fs) {
         managedSystemsWriteLock.lock();
         try {
             return managedSystems.remove(domain, fs);

@@ -114,7 +114,7 @@ public final class BlockWeakReferenceList<Owner> extends BlockLike<Owner> {
 
     private int calculateTrueCapacity() {
         Map.Entry<Integer, WeakReference<Block<Owner>>> lastBlock = nested.lastEntry();
-        return lastBlock.getKey() + getBlock(lastBlock.getValue()).capacity();
+        return lastBlock == null ? 0 : lastBlock.getKey() + getBlock(lastBlock.getValue()).capacity();
     }
 
     //

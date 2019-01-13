@@ -17,8 +17,9 @@ import java.util.stream.Stream;
 import com.google.common.collect.ImmutableList;
 
 import dynfs.core.options.LinkOptions;
+import dynfs.debug.Dumpable;
 
-public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
+public final class DynRoute implements Iterable<String>, Comparable<DynRoute>, Dumpable {
 
     //
     // Constant: Root Path String
@@ -100,8 +101,9 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     }
 
     private DynRoute(boolean isAbsolute, List<String> names, String query, String fragment) {
-        if (names == null)
+        if (names == null) {
             names = ImmutableList.of();
+        }
 
         this.isAbsolute = isAbsolute;
         this.names = Collections.unmodifiableList(names);
@@ -110,13 +112,28 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     }
 
     private static List<String> decomposePathString(String first, String... more) {
-        Stream<String> pathStream = Stream.concat(Stream.<String>builder().add(first).build(), Arrays.stream(more));
-        List<String> pathComponents = pathStream.flatMap(ps -> Arrays.stream(ps.split(PATH_SEPARATOR)))
+        Stream<String> pathStream = Stream.concat(
+                Stream.<String>builder()
+                        .add(first)
+                        .build(),
+                Arrays.stream(more));
+        List<String> pathComponents = pathStream
+                .flatMap(ps -> Arrays.stream(ps.split(PATH_SEPARATOR)))
+                .filter(n -> !n.isEmpty())
                 .collect(Collectors.toCollection(ArrayList<String>::new));
         return pathComponents;
     }
 
-    static DynRoute fromRouteNames(String first, String... more) {
+    public static DynRoute fromRouteNames(String first, String... more) {
+        if (first == null)
+            throw new NullPointerException("first is null");
+        if (more == null)
+            throw new NullPointerException("more is null");
+
+        return fromRouteNamesImpl(first, more);
+    }
+
+    static DynRoute fromRouteNamesImpl(String first, String... more) {
         boolean isAbsolute = first.startsWith(PATH_SEPARATOR);
         if (isAbsolute) {
             first = first.substring(1);
@@ -126,13 +143,51 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         return new DynRoute(isAbsolute, routeNames);
     }
 
+    static DynRoute fromRouteNameList(boolean isAbsolute, List<String> routeNames) {
+        return new DynRoute(isAbsolute, new ArrayList<>(routeNames));
+    }
+
     static DynRoute fromUri(URI uri) {
         List<String> routeNames = decomposePathString(uri.getPath());
         return new DynRoute(true, routeNames, uri.getQuery(), uri.getFragment());
     }
 
-    static DynRoute fromRouteNameList(boolean isAbsolute, List<String> routeNames) {
-        return new DynRoute(isAbsolute, new ArrayList<>(routeNames));
+    //
+    // Core Support: Equality Check
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof DynRoute)) {
+            return false;
+        }
+
+        DynRoute r = (DynRoute) o;
+
+        if (isAbsolute != r.isAbsolute) {
+            return false;
+        }
+
+        if (!names.equals(r.names)) {
+            return false;
+        }
+
+        if (!equalsNullable(query, r.query)) {
+            return false;
+        }
+
+        if (!equalsNullable(fragment, r.fragment)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static boolean equalsNullable(Object a, Object b) {
+        if (a == null) {
+            return a == b;
+        } else {
+            return a.equals(b);
+        }
     }
 
     //
@@ -274,7 +329,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         if (other == null)
             throw new NullPointerException("other is null");
 
-        return startsWith(DynRoute.fromRouteNames(other));
+        return startsWith(DynRoute.fromRouteNamesImpl(other));
     }
 
     //
@@ -304,7 +359,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
         if (other == null)
             throw new NullPointerException("other is null");
 
-        return endsWith(DynRoute.fromRouteNames(other));
+        return endsWith(DynRoute.fromRouteNamesImpl(other));
     }
 
     //
@@ -357,7 +412,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     }
 
     public DynRoute resolve(String other) {
-        return resolve(DynRoute.fromRouteNames(other));
+        return resolve(DynRoute.fromRouteNamesImpl(other));
     }
 
     //
@@ -375,7 +430,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     }
 
     public DynRoute resolveSibling(String other) {
-        return resolveSibling(DynRoute.fromRouteNames(other));
+        return resolveSibling(DynRoute.fromRouteNamesImpl(other));
     }
 
     //
@@ -413,7 +468,7 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     }
 
     public DynRoute relativize(String other) {
-        return relativize(DynRoute.fromRouteNames(other));
+        return relativize(DynRoute.fromRouteNamesImpl(other));
     }
 
     //
@@ -472,6 +527,17 @@ public final class DynRoute implements Iterable<String>, Comparable<DynRoute> {
     @Override
     public Iterator<String> iterator() {
         return names.iterator();
+    }
+
+    //
+    // Debug: Dump
+
+    @Override
+    public void __dump(DumpBuilder db) {
+        db.writeLine("names: " + names);
+        db.writeLine("query: " + query);
+        db.writeLine("fragment: " + fragment);
+        db.writeLine("isAbsolute: " + isAbsolute);
     }
 
 }

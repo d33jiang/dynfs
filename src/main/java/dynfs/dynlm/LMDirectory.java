@@ -115,7 +115,7 @@ public class LMDirectory extends DynDirectory<LMSpace, LMDirectory> {
     // Implementation: Child Resolution
 
     @Override
-    protected DynNode<LMSpace, ?> resolveChild(String name) throws IOException {
+    protected DynNode<LMSpace, ?> resolveChildImpl(String name) throws IOException {
         return children.get(name);
     }
 

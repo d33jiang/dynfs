@@ -82,7 +82,7 @@ public final class BlockList<Owner> extends BlockLike<Owner> {
 
     private int calculateTrueCapacity() {
         Map.Entry<Integer, Block<Owner>> lastBlock = nested.lastEntry();
-        return lastBlock.getKey() + lastBlock.getValue().capacity();
+        return lastBlock == null ? 0 : lastBlock.getKey() + lastBlock.getValue().capacity();
     }
 
     //

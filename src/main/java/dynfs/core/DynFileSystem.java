@@ -58,6 +58,7 @@ public final class DynFileSystem<Space extends DynSpace<Space>> extends FileSyst
     @Override
     public void close() throws IOException {
         getStore().close();
+        provider().decoupleFileSystem(domain(), this);
     }
 
     //
@@ -170,6 +171,19 @@ public final class DynFileSystem<Space extends DynSpace<Space>> extends FileSyst
 
     //
     // Interface: Route Resolution
+
+    public final ResolutionResult<Space> resolve(String route) throws IOException {
+        return resolve(DynRoute.fromRouteNames(route));
+    }
+
+    public final ResolutionResult<Space> resolve(String route, boolean followLinks) throws IOException {
+        return resolve(DynRoute.fromRouteNames(route), followLinks);
+    }
+
+    public final ResolutionResult<Space> resolve(String route, boolean followLinks, boolean followIfLinkNode)
+            throws IOException {
+        return resolve(DynRoute.fromRouteNames(route), followLinks, followIfLinkNode);
+    }
 
     public final ResolutionResult<Space> resolve(DynRoute route) throws IOException {
         return getStore().resolve(route);

@@ -2,6 +2,7 @@ package dynfs.core;
 
 import java.io.IOException;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
@@ -51,13 +52,22 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     }
 
     //
-    // Interface Implementation Stub: DynNode Size, Cache on Load
+    // State: Status
 
-    public abstract long readSize() throws IOException;
+    public enum DynNodeStatus {
+        NORMAL,
+        LOCKED,
+        DELETED;
 
-    // NOTE: Javadoc Note - Default implementation
-    protected void writeSize(long newSize) throws IOException {
-        throw new UnsupportedOperationException("The size of this DynNode cannot be rewritten");
+        public boolean isDeleted() {
+            return this == DELETED;
+        }
+    }
+
+    private DynNodeStatus status = DynNodeStatus.NORMAL;
+
+    public DynNodeStatus status() {
+        return status;
     }
 
     //
@@ -98,9 +108,8 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
     protected static void validateName(String lblName, String name) {
         if (name == null)
             throw new NullPointerException(lblName + " cannot be null");
-        // NOTE: Design Review - Should DynNodes with empty-string names be disallowed?
-        // if (name.isEmpty())
-        // throw new IllegalArgumentException(lblName + " must be non-empty");
+        if (name.isEmpty())
+            throw new IllegalArgumentException(lblName + " must be non-empty");
         if (name.contains("/"))
             throw new IllegalArgumentException(lblName + " cannot contain '/'");
     }
@@ -143,6 +152,16 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
 
     public boolean isRoot() {
         return parent == null;
+    }
+
+    //
+    // Interface Implementation Stub: DynNode Size, Cache on Load
+
+    public abstract long readSize() throws IOException;
+
+    // NOTE: Javadoc Note - Default implementation
+    protected void writeSize(long newSize) throws IOException {
+        throw new UnsupportedOperationException("The size of this DynNode cannot be rewritten");
     }
 
     //
@@ -402,6 +421,8 @@ public abstract class DynNode<Space extends DynSpace<Space>, Node extends DynNod
      * @see FileSystemProvider#delete(Path)
      */
     public final void delete() throws IOException {
+        if (status.isDeleted())
+            throw new NoSuchFileException(getRouteString());
         if (isRoot())
             // TODO: Design Consideration - Temporary exception; find better exception
             throw new UnsupportedOperationException("Cannot delete root node");

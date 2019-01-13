@@ -67,7 +67,9 @@ final class DynFileSystemGeneralCopier {
                 ByteBuffer buf = ByteBuffer.allocate(BUFFER_SIZE);
 
                 while (in.read(buf) != -1) {
+                    buf.flip();
                     out.write(buf);
+                    buf.flip();
                 }
             }
         }
